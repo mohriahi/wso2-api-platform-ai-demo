@@ -10,6 +10,7 @@ reads a single field out of showcases.json, since that's the same kind of
 plain config read this module already does (DEMO_ENV, PROVIDERS), and the
 value must agree with what the UI displays.
 """
+import base64
 import http.cookiejar
 import json
 import os
@@ -73,6 +74,10 @@ def gateway_ports() -> dict:
 
 
 GATEWAY_ENDPOINT = os.environ.get("GATEWAY_ENDPOINT") or f"localhost:{gateway_ports()['GATEWAY_HTTPS_PORT']}"
+# The gateway's own management API, for what the control plane does not handle
+# yet (A2A agents). Same admin account as AI Workspace.
+GATEWAY_MGMT = (os.environ.get("GATEWAY_MGMT_URL")
+                or f"http://localhost:{gateway_ports()['GATEWAY_CONTROLLER_REST_PORT']}").rstrip("/")
 
 # One entry per upstream LLM, loaded from providers.json at the repo root --
 # not defined here, because ai-chatbot/server.py needs the exact same
@@ -230,6 +235,12 @@ def request(method: str, url: str, data=None, headers=None):
 def api(method: str, path: str, data=None):
     """Call against the ai-workspace control-plane API (requires login() first)."""
     return request(method, f"{AIW}/ai-workspace/proxy/api/v0.9{path}", data)
+
+
+def gateway_mgmt(method: str, path: str, data=None):
+    """Call against the gateway's management API (basic auth, admin account)."""
+    token = base64.b64encode(f"{ADMIN_USERNAME}:{ADMIN_PASSWORD}".encode()).decode()
+    return request(method, f"{GATEWAY_MGMT}/api/management/v1{path}", data, {"Authorization": "Basic " + token})
 
 
 def login(attempts: int = 5):

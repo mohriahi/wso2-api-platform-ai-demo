@@ -80,7 +80,7 @@ import time
 
 from platform_api import (
     ROOT, DEMO_ENV, GATEWAY_ID, GATEWAY_ENDPOINT, PROVIDERS, DEFAULT_PROVIDER_ID, gateway_ports,
-    probe, api, login, read_secret, deploy, upsert_shared_provider, budget_for,
+    probe, api, login, read_secret, deploy, upsert_shared_provider, budget_for, gateway_mgmt, request,
     budget_duration, showcase, showcases, azure_safety_missing, bedrock_safety_missing,
 )
 
@@ -600,6 +600,7 @@ DEFAULT_LANE_IDS = [lid for lid, l in ALL_LANES.items() if l["config"] is not No
 # its context, upstream MCP server and policies. No key is issued: the
 # platform's API keys cover LLM resources only, so these proxies are open.
 MCP_PROXIES = {s["id"]: s for s in showcases() if s.get("mcp")}
+A2A_AGENTS = {s["id"]: s for s in showcases() if s.get("a2a")}
 
 
 # =============================================================================
@@ -829,6 +830,37 @@ def upsert_mcp_proxy(card: dict):
         "policies": mcp.get("policies", []),
         **({"capabilities": capabilities} if capabilities else {}),
     }, "MCP proxy")
+
+
+def upsert_agent(card: dict):
+    """An A2A agent proxy, deployed on the gateway itself through its management
+    API: the control plane does not handle agents yet. Both A2A bindings are
+    exposed, and the agent's card is relayed with its addresses pointed at the
+    gateway, so a client that discovers the agent from it comes back through
+    the gateway and its policies."""
+    a2a = card["a2a"]
+    body = {"apiVersion": "gateway.api-platform.wso2.com/v1", "kind": "Agent",
+            "metadata": {"name": card["id"]},
+            "spec": {"displayName": " - ".join(filter(None, (a2a.get("agent"), card.get("title")))),
+                     "version": "v1.0", "context": a2a["context"], "upstream": {"url": a2a["upstream"]},
+                     "a2a": {"protocolVersion": "1.0",
+                             "operationConfigs": {"transports": [
+                                 {"protocolBinding": "JSONRPC", "pathPrefix": "/"},
+                                 {"protocolBinding": "HTTP+JSON", "pathPrefix": "/v1"}],
+                                 "policies": a2a.get("policies", [])},
+                             "agentCard": {"public": {"mode": "passthrough", "rewriteUrls": True}}}}}
+    exists = gateway_mgmt("GET", f"/agents/{card['id']}")[0] == 200
+    status, resp = (gateway_mgmt("PUT", f"/agents/{card['id']}", body) if exists
+                    else gateway_mgmt("POST", "/agents", body))
+    if status not in (200, 201):
+        sys.exit(f"  agent proxy failed: {status} {resp}")
+    print("  agent proxy %s on the gateway" % ("updated" if exists else "created"))
+    for _ in range(30):
+        if request("GET", f"https://{GATEWAY_ENDPOINT}{a2a['context']}/.well-known/agent-card.json")[0] == 200:
+            print("  agent card served by the gateway")
+            return
+        time.sleep(1)
+    sys.exit(f"  the gateway does not serve {a2a['context']}/.well-known/agent-card.json yet")
 
 
 def issue_key(lane_id: str) -> tuple[str, str]:
@@ -1117,12 +1149,13 @@ def main():
         sys.exit(f"unknown flag(s): {sorted(unknown_flags)}. Known: --existing-gateway, --check")
     existing_gateway = "--existing-gateway" in flags or "--check" in flags
 
-    requested = [a for a in args if not a.startswith("--")] or DEFAULT_LANE_IDS + list(MCP_PROXIES)
-    unknown = [r for r in requested if r not in ALL_LANES and r not in MCP_PROXIES]
+    requested = [a for a in args if not a.startswith("--")] or DEFAULT_LANE_IDS + list(MCP_PROXIES) + list(A2A_AGENTS)
+    unknown = [r for r in requested if r not in ALL_LANES and r not in MCP_PROXIES and r not in A2A_AGENTS]
     if unknown:
         sys.exit("\n".join(f"{r} needs {SKIPPED_LANES[r]}" if r in SKIPPED_LANES else f"unknown lane: {r}"
-                           for r in unknown) + f"\nKnown: {list(ALL_LANES) + list(MCP_PROXIES)}")
+                           for r in unknown) + f"\nKnown: {list(ALL_LANES) + list(MCP_PROXIES) + list(A2A_AGENTS)}")
     mcp_requested = [r for r in requested if r in MCP_PROXIES]
+    a2a_requested = [r for r in requested if r in A2A_AGENTS]
     requested = [r for r in requested if r in ALL_LANES]
 
     # Only the providers actually needed by what was requested — running
@@ -1199,6 +1232,10 @@ def main():
             print(f"### {sid} ({card['mcp']['context']}, MCP proxy)")
             upsert_mcp_proxy(card)
             deploy(sid, card["mcp"]["context"], "/mcp", resource="mcp-proxies")
+
+        for sid in a2a_requested:
+            print(f"### {sid} ({A2A_AGENTS[sid]['a2a']['context']}, A2A agent)")
+            upsert_agent(A2A_AGENTS[sid])
     finally:
         if state["keys_changed"]:
             if sys.exc_info()[0] is not None:

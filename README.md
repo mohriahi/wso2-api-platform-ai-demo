@@ -86,6 +86,24 @@ reply, with what the gateway did.
 The last two need an OpenID Connect identity provider (Asgardeo, WSO2 Identity
 Server or any other): see [.docs/mcp-identity-provider.md](.docs/mcp-identity-provider.md).
 
+On the **A2A Gateway** page, the assistant is an A2A client: it hands the
+customer's question to another agent, Acme's roaming agent
+(`a2a-agents/acme-roaming/`), through that agent's proxy on the gateway. The
+gateway serves the agent's card with its addresses pointed at itself, so a
+client that discovers the agent from it comes back through the gateway.
+
+| A2A showcase | What it shows |
+|---|---|
+| Agent behind the gateway | The app reads the agent card from the gateway, then asks the agent; no rule applied |
+| Guardrail on agent messages | The Prompt injection rule, on traffic between agents: the agent never sees the attack |
+
+A2A needs gateway 2026.09.24 or later, and this branch runs it. Its control
+plane (Platform API 0.16.0) does not handle agents yet, so
+`provision_showcases.py` deploys them on the gateway itself, through its
+management API. Two LLM cards do not work on this gateway version with this
+control plane: Time-based routing and Cost-based routing (their proxies are
+refused when the gateway syncs them).
+
 
 ## Prerequisites
 

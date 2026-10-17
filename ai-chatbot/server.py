@@ -36,6 +36,7 @@ import sys
 import threading
 import time
 import urllib.error
+import uuid
 import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -554,6 +555,15 @@ def resolve_gateway(entry, provider_id=DEFAULT_PROVIDER_ID):
             return None, "mcp.provider %s must speak the OpenAI format" % provider
         return gateway_base() + ctx.rstrip("/") + "/mcp", "showcases.json mcp"
 
+    # An A2A card's url is its agent's base on the gateway: the app reads the
+    # agent card there, and sends to the address the card gives (Handler._a2a_turn).
+    a2a = entry.get("a2a")
+    if a2a:
+        ctx = a2a.get("context") or ""
+        if not CONTEXT_RE.match(ctx):
+            return None, "a2a.context %r is not a plain path" % ctx
+        return gateway_base() + ctx.rstrip("/"), "showcases.json a2a"
+
     # The context for any (showcase, provider) pair is always exactly
     # /<providerId>-<contextSuffix>, or bare /<providerId> when contextSuffix
     # is empty -- scripts/python/provision_showcases.py builds the gateway's own
@@ -577,6 +587,8 @@ def showcase_context(url, provider_id=DEFAULT_PROVIDER_ID, entry=None):
         return None
     path = urllib.parse.urlsplit(url).path
     route = (entry or {}).get("route")
+    if (entry or {}).get("a2a"):
+        return path or "/"
     if (entry or {}).get("mcp"):
         suffix = "/mcp"
     else:
@@ -1096,7 +1108,7 @@ class Handler(BaseHTTPRequestHandler):
             url, source = resolve_gateway(entry, provider_id)
             # A card whose lane was never provisioned has no gateway key of its
             # own, and every call would be refused: show it as not wired.
-            if url and not entry.get("mcp") \
+            if url and not entry.get("mcp") and not entry.get("a2a") \
                     and resolve_showcase(entry["id"], provider_id)["keySource"] != "showcase":
                 url, source = None, "not provisioned on this gateway yet, see the README"
             item = dict((k, v) for k, v in entry.items() if k != "gateway")
@@ -1216,6 +1228,11 @@ class Handler(BaseHTTPRequestHandler):
                 "hint": showcase["source"]})
 
         entry = registry["by_id"][showcase_id]
+        if entry.get("a2a"):
+            conversation = payload.get("conversation")
+            if not isinstance(conversation, str) or not CONVERSATION_RE.match(conversation):
+                conversation = None
+            return self._a2a_turn(showcase, messages, conversation)
         if entry.get("mcp"):
             conversation = payload.get("conversation")
             if not isinstance(conversation, str) or not CONVERSATION_RE.match(conversation):
@@ -1432,6 +1449,70 @@ class Handler(BaseHTTPRequestHandler):
                                     "usage": usage})
         self._sse("message_stop", {"type": "message_stop"})
         self._end_chunks()
+
+    # -- A2A cards -------------------------------------------------------------
+    #
+    # The app is an A2A client: it reads the agent card the gateway serves for
+    # the agent, then sends the customer's message to the JSON-RPC address that
+    # card gives, which the gateway has pointed at itself. The agent's reply is
+    # replayed in the usual event shape, after one "agent_card" event.
+
+    def _a2a_turn(self, showcase, messages, conversation):
+        base = showcase["url"]
+        try:
+            with urllib.request.urlopen(base + "/.well-known/agent-card.json",
+                                        context=SSL_CONTEXT, timeout=15) as response:
+                card = json.loads(response.read())
+        except (urllib.error.URLError, ValueError) as exc:
+            return self._json(502, {"error": "no agent card at the gateway", "gatewayOutcome": "unreachable",
+                                    "showcase": showcase["id"], "detail": str(getattr(exc, "reason", exc))})
+        endpoint = next((i.get("url") for i in card.get("supportedInterfaces") or []
+                         if i.get("protocolBinding") == "JSONRPC"), None)
+        if not endpoint or not _valid_url(endpoint):
+            return self._json(502, {"error": "the agent card names no JSON-RPC address",
+                                    "gatewayOutcome": "error", "showcase": showcase["id"],
+                                    "gatewayBody": json.dumps(card)[:4000]})
+
+        message = {"messageId": str(uuid.uuid4()), "role": "ROLE_USER",
+                   "parts": [{"text": messages[-1]["content"]}]}
+        if conversation:
+            message["contextId"] = conversation  # one A2A context per chat
+        request = urllib.request.Request(endpoint, method="POST", data=json.dumps({
+            "jsonrpc": "2.0", "id": next(_RPC_IDS), "method": "SendMessage",
+            "params": {"message": message}}).encode(),
+            headers={"content-type": "application/json", "A2A-Version": "1.0"})
+        try:
+            with urllib.request.urlopen(request, context=SSL_CONTEXT, timeout=60) as response:
+                headers, raw = response.headers, response.read().decode("utf-8", "replace")
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode("utf-8", "replace")
+            self.log_message("[%s] gateway HTTP %d: %s", showcase["id"], exc.code, body[:400])
+            outcome = "policy_block" if guardrail_verdict(body) else classify_gateway_error(
+                exc.code, exc.headers, body, showcase)
+            payload = {"error": "the gateway did not pass the message to the agent", "gatewayStatus": exc.code,
+                       "gatewayOutcome": outcome, "showcase": showcase["id"], "gatewayBody": body[:4000]}
+            payload.update(gateway_meta(exc.headers))
+            return self._json(422 if outcome in ("policy_block", "budget_exhausted") else 502, payload)
+        except urllib.error.URLError as exc:
+            return self._json(502, {"error": "cannot reach the gateway", "gatewayOutcome": "unreachable",
+                                    "showcase": showcase["id"], "detail": str(exc.reason)})
+
+        try:
+            reply = json.loads(raw)
+        except ValueError:
+            reply = {"error": {"message": raw[:300]}}
+        if "error" in reply:
+            return self._json(502, {"error": "the agent answered with an error", "gatewayOutcome": "error",
+                                    "showcase": showcase["id"], "gatewayBody": raw[:4000]})
+        result = reply.get("result") or {}
+        answer = result.get("message") or ((result.get("task") or {}).get("status") or {}).get("message") or {}
+        text = "".join(part.get("text", "") for part in answer.get("parts") or [])
+
+        self._begin_sse()
+        self._sse("agent_card", {"name": card.get("name"), "binding": "JSON-RPC", "url": endpoint})
+        self._sse("gateway_meta", gateway_meta(headers, streamed=False))
+        self._emit_openai({"model": card.get("name"), "choices": [{"message": {"content": text},
+                                                                    "finish_reason": "stop"}]})
 
     # -- MCP cards -------------------------------------------------------------
     #
