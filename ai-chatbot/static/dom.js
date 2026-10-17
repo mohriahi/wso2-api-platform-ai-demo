@@ -138,7 +138,7 @@ const TOOL_OUTCOMES = {
 export function agentCardHtml(card) {
   return '<p class="tool-list"><span>Agent card served by the gateway</span>'
     + '<code>' + escapeHtml(card.name || '?') + '</code>'
-    + '<code>' + escapeHtml(card.binding + ' ' + card.url) + '</code></p>';
+    + '<code class="is-endpoint">' + escapeHtml(card.binding + ' ' + card.url) + '</code></p>';
 }
 
 /* The tools the gateway offered the agent this turn, one line per MCP server. */
