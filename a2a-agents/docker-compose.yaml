@@ -1,0 +1,18 @@
+# The A2A agents behind the A2A showcases. Like the MCP servers, each is a
+# backend the gateway relays to, on the network the gateway runtime shares with
+# them (created by scripts/run-local.sh). No host port.
+services:
+  acme-roaming:
+    build: ./acme-roaming
+    image: ${DEMO_NAME:-ai-demo}-acme-roaming:latest
+    environment:
+      # The address the agent advertises in its card: the one the gateway reaches it on.
+      - PUBLIC_URL=http://acme-roaming:8000
+    mem_limit: 128m
+    networks:
+      - backends
+
+networks:
+  backends:
+    external: true
+    name: ${DEMO_NAME:-ai-demo}-mcp
