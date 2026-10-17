@@ -39,6 +39,9 @@ echo "### mcp-servers"
 # Recreated on every run, so the current version of their code is the one running.
 (cd "$ROOT/mcp-servers" && docker compose up -d --force-recreate) >"$LOGS/mcp-servers.log" 2>&1
 
+echo "### a2a-agents"
+(cd "$ROOT/a2a-agents" && docker compose up -d --build) >"$LOGS/a2a-agents.log" 2>&1
+
 echo "### ai-workspace"
 (cd "$ROOT/ai-workspace" && docker compose up -d --wait) >"$LOGS/ai-workspace.log" 2>&1
 

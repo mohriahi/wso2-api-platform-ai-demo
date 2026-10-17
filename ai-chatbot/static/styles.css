@@ -761,16 +761,18 @@ body {
 body[data-screen="home"] #screen-chat,
 body[data-screen="chat"] #screen-home { display: none; }
 
-/* Two pages, one per gateway. MCP cards fix their own model, so the provider
-   picker has nothing to do there. */
-body[data-page="llm"] [data-page-only="mcp"],
-body[data-page="mcp"] [data-page-only="llm"],
-body[data-page="mcp"] .provider { display: none; }
+/* One page per gateway. MCP and A2A cards fix their own backend, so the
+   provider picker has nothing to do there. */
+body:not([data-page="llm"]) [data-page-only="llm"],
+body:not([data-page="mcp"]) [data-page-only="mcp"],
+body:not([data-page="a2a"]) [data-page-only="a2a"],
+body:not([data-page="llm"]) .provider { display: none; }
 
 .gw-nav { display: flex; gap: 6px; }
 .gw-nav a { text-decoration: none; }
 body[data-page="llm"] #nav-llm,
-body[data-page="mcp"] #nav-mcp {
+body[data-page="mcp"] #nav-mcp,
+body[data-page="a2a"] #nav-a2a {
   background: var(--top-text);
   border-color: var(--top-text);
   color: var(--top-bg);
