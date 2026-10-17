@@ -220,7 +220,10 @@ services:
     profiles: ["metrics"]
 
 volumes:
+  # One database per gateway version: a new version may need a new schema
+  # (1.2.0 to 2026.09.24 does), and the older one stays usable alongside it.
   controller-data:
+    name: ${COMPOSE_PROJECT_NAME}_controller-data-${AI_GATEWAY_VERSION:-1.2.0}
     driver: local
   opensearch-data:
     driver: local
