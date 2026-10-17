@@ -47,6 +47,8 @@
   --error-bg:     #FFF0F3;
   --warn:         #E8A200;
   --warn-ink:     #A87400;
+  --beta:         #F5B700;
+  --beta-ink:     #3D2A00;
 
   /* Details */
   --code-bg:      #001F66;
@@ -383,6 +385,12 @@ body {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px;
   padding: 2px 8px; border-radius: 999px;
   background: var(--soft); color: var(--text-strong);
+}
+/* The address an agent card gives, once the gateway has pointed it at itself. */
+.tool-list code.is-endpoint {
+  background: color-mix(in srgb, var(--success) 16%, transparent);
+  color: var(--success-ink);
+  font-weight: 600;
 }
 .tool-call {
   margin: 0 0 8px;
@@ -770,6 +778,12 @@ body:not([data-page="llm"]) .provider { display: none; }
 
 .gw-nav { display: flex; gap: 6px; }
 .gw-nav a { text-decoration: none; }
+.beta {
+  display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+  vertical-align: 1px;
+  background: var(--beta); color: var(--beta-ink);
+}
 body[data-page="llm"] #nav-llm,
 body[data-page="mcp"] #nav-mcp,
 body[data-page="a2a"] #nav-a2a {
@@ -1334,7 +1348,7 @@ body[data-rail="none"] .workspace > .shell { grid-template-columns: minmax(0, va
 @media (max-width: 1023px) {
   .provider-label, .status span:not(.dot) { display: none; }
 }
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .topbar-inner { padding: 12px 14px; flex-wrap: wrap; row-gap: 10px; }
   .topbar-right { width: 100%; gap: 8px; flex-wrap: wrap; }
   .launcher { margin-left: auto; }
@@ -1342,6 +1356,7 @@ body[data-rail="none"] .workspace > .shell { grid-template-columns: minmax(0, va
 
 @media (max-width: 640px) {
   .gw-nav .ghost-btn { padding: 6px 11px; font-size: 12px; }
+  .nav-word { display: none; }
   .status { display: none; }
   .brand-divider, .brand-product { display: none; }
   .controlbar-inner { padding: 8px 14px; gap: 8px; }
