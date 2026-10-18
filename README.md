@@ -100,9 +100,13 @@ Server or any other): see the [IDP Setup](.docs/mcp-identity-provider.md).
   the semantic cards (caching, routing, prompt and topic guards) and
   Intelligent routing use it. It can be the same key as for Mistral chat.
 
+<<<<<<< Updated upstream
 This demo has been tested with paid **Anthropic** credit and a free
 **Mistral** API key, the combination we recommend. **Gemini**'s free tier
 is more restrictive: some models aren't available on a newly created key,
+=======
+This demo has been tested most thoroughly with **Anthropic** and **Mistral** — that's the combination we recommend. **Gemini**'s free tier is more restrictive: some models aren't available on a newly created key,
+>>>>>>> Stashed changes
 and you're more likely to hit rate limits.
 
 Intelligent routing spans two providers: it needs both an **Anthropic** and
