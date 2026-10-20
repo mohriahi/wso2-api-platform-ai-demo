@@ -79,8 +79,8 @@ import sys
 import time
 
 from platform_api import (
-    ROOT, DEMO_ENV, GATEWAY_ID, GATEWAY_ENDPOINT, PROVIDERS, DEFAULT_PROVIDER_ID, gateway_ports,
-    probe, api, login, read_secret, deploy, upsert_shared_provider, budget_for, gateway_mgmt, request,
+    ROOT, DEMO_ENV, GATEWAY_ID, GATEWAY_ENDPOINT, PROVIDERS, DEFAULT_PROVIDER_ID,
+    probe, gateway_mgmt, api, login, read_secret, deploy, upsert_shared_provider, budget_for, request,
     budget_duration, showcase, showcases, azure_safety_missing, bedrock_safety_missing,
 )
 
@@ -124,6 +124,40 @@ def env_key(base_id: str, field: str, provider_id: str) -> str:
     if provider_id != DEFAULT_PROVIDER_ID:
         key += "_" + provider_id.upper()
     return "%s_%s" % (key, field)
+
+
+# Link Guard's patterns. An internal address: loopback, the private ranges, the
+# cloud metadata address (169.254.x.x), names ending in .internal, .local, .lan
+# or .corp, and one-word host names (http://billing/, http://10.1.2.3 written as
+# a single number).
+INTERNAL_ADDRESS = (
+    r"(?i)\bfile://|\b(?:https?|ftp)://(?:localhost|127(?:\.\d+){3}|10(?:\.\d+){3}"
+    r"|192\.168(?:\.\d+){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d+){2}|169\.254(?:\.\d+){2}"
+    r"|0\.0\.0\.0|\[[0-9a-f:.]*\]|[a-z0-9.-]*\.(?:internal|local|lan|corp)(?:[:/?#\s]|$)"
+    r"|[a-z0-9-]+(?::\d+)?(?:[/?#\s]|$))")
+# A link that carries parameters (?name=value), the usual way to send data out
+# in an address.
+DATA_IN_LINK = r"\bhttps?://[^\s?#]+\?[^\s#]*="
+
+# Where each wire format reports the tokens a call used, for the token quota.
+TOKEN_PATHS = {"anthropic": ["$.usage.input_tokens", "$.usage.output_tokens"],
+               "openai": ["$.usage.total_tokens"],
+               "gemini": ["$.usageMetadata.totalTokenCount"]}
+
+# Markup Guard's pattern: markup a web page showing the answer would run.
+# Ordinary HTML (lists, links) goes through.
+MARKUP = (r"(?i)<\s*(?:script|iframe|object|embed)\b|\bjavascript\s*:|\bdata\s*:\s*text/html"
+          r"|\bon(?:error|load|click|mouseover|focus|submit)\s*=")
+
+# Secret Guard's pattern: a password or PIN given in a sentence (its value holds
+# a digit or a symbol, so "my password is expired" goes through), AWS access
+# keys, private keys, Anthropic/OpenAI, Google and GitHub API keys, Slack
+# tokens and JWTs.
+SECRET = (
+    r"(?i)\b(?:password|passwd|pwd|passcode|pin)\s*(?:is|:|=)\s*\S*[0-9!@#$%^&*?]\S*"
+    r"|\bAKIA[0-9A-Z]{16}\b|-----BEGIN [A-Z ]*PRIVATE KEY-----"
+    r"|\bsk-(?:ant-)?[A-Za-z0-9_-]{20,}|\bAIza[0-9A-Za-z_-]{35}|\bgh[pousr]_[A-Za-z0-9]{36}"
+    r"|\bxox[baprs]-[A-Za-z0-9-]{10,}|\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}")
 
 
 def lane_templates(provider: dict) -> dict:
@@ -228,21 +262,65 @@ def lane_templates(provider: dict) -> dict:
                     "rules": [{"upperTokenLimit": 200, "type": "ratio", "value": 1.0},
                               {"upperTokenLimit": -1, "type": "ratio", "value": 0.6}]}}],
         },
-        # Every link in the answer must open (HTTP HEAD, 2xx or 3xx) before the
-        # customer sees it; a dead one blocks the answer with a 422.
+        # The question may not point at an internal address (SSRF), and the
+        # answer may not either, nor carry data out in a link's parameters
+        # (exfiltration). A match blocks with a 422.
         "link-check": {
-            "context_suffix": "link-check", "displayName": "Link Check", "wired": True,
-            "globalPolicies": [{"name": "url-guardrail", "version": "v1", "params": {
-                "request": {"enabled": False},
-                "response": {"enabled": True, "jsonPath": provider["responseContentPath"],
-                             "showAssessment": True}}}],
+            "context_suffix": "link-check", "displayName": "Link Guard", "wired": True,
+            "globalPolicies": [{"name": "regex-guardrail", "version": "v1", "params": {
+                "request": {"enabled": True, "invert": True,
+                            "jsonPath": provider["contentPath"],
+                            "regex": INTERNAL_ADDRESS},
+                "response": {"enabled": True, "invert": True,
+                             "jsonPath": provider["responseContentPath"],
+                             "regex": INTERNAL_ADDRESS + "|" + DATA_IN_LINK}}}],
+        },
+        # Every question and answer is written to the gateway's log, with its
+        # headers but never the credentials: the record scripts/audit-log.sh shows.
+        "audit-log": {
+            "context_suffix": "audit-log", "displayName": "Audit Log", "wired": True,
+            "globalPolicies": [{"name": "log-message", "version": "v1", "params": {
+                "request": {"payload": True, "headers": True,
+                            "excludeHeaders": ["x-api-key", "authorization", "cookie"]},
+                "response": {"payload": True}}}],
+        },
+        # Each customer (the x-customer-id header) has a token allowance over a
+        # window, counted from the tokens each answer used. A customer who uses
+        # it up gets a 429; the others are not affected.
+        "token-quota": {
+            "context_suffix": "token-quota", "displayName": "Token Quota", "wired": True,
+            "globalPolicies": [{"name": "advanced-ratelimit", "version": "v1", "params": {"quotas": [{
+                "name": "tokens-per-customer",
+                "limits": [{"limit": showcase("token-quota")["quota"]["tokens"],
+                            "duration": showcase("token-quota")["quota"]["duration"]}],
+                "keyExtraction": [{"type": "routename"},
+                                  {"type": "header", "key": showcase("token-quota")["selector"]["header"]}],
+                "costExtraction": {"enabled": True, "sources": [
+                    {"type": "response_body", "jsonPath": path} for path in TOKEN_PATHS[provider["wire"]]]},
+            }]}}],
+        },
+        # An answer carrying markup a web page would run (a script, an event
+        # handler, a javascript: link) is blocked with a 422.
+        "markup-guard": {
+            "context_suffix": "markup-guard", "displayName": "Markup Guard", "wired": True,
+            "globalPolicies": [{"name": "regex-guardrail", "version": "v1", "params": {
+                "response": {"enabled": True, "invert": True,
+                             "jsonPath": provider["responseContentPath"], "regex": MARKUP}}}],
+        },
+        # A question carrying a password or a key is refused with a 422 before it
+        # leaves for the model provider.
+        "secret-guard": {
+            "context_suffix": "secret-guard", "displayName": "Secret Guard", "wired": True,
+            "globalPolicies": [{"name": "regex-guardrail", "version": "v1", "params": {
+                "request": {"enabled": True, "invert": True,
+                            "jsonPath": provider["contentPath"], "regex": SECRET}}}],
         },
         "prompt-decoration": {
             "context_suffix": "decorator", "displayName": "Prompt Decoration", "wired": True,
             "globalPolicies": [{"name": "prompt-decorator", "version": "v1", "params": {
                 "jsonPath": provider["contentPath"], "append": True,
                 "promptDecoratorConfig": {"text": "\n\nEnd your answer with this exact sentence, on its "
-                                                  "own line: Prices include VAT and may change at any time."}}}],
+                                                  "own line: This answer was written by an AI assistant."}}}],
         },
         "semantic-caching": {
             "context_suffix": "cache", "displayName": "Semantic Caching", "wired": True,
@@ -577,16 +655,34 @@ def cross_provider_lanes() -> dict:
 
     default, routed = _route_providers("tier-routing")
     if default and routed:
-        tiers = {"standard": (default, "small"), "premium": (routed, "large")}
-        lanes["tier-routing"] = _cross_lane(
+        lanes["tier-routing"] = _header_lane(
             "tier-routing", "Customer Tier Routing", default, routed,
-            [{"id": prov["providerId"], "as": tier} for tier, (prov, _) in tiers.items()],
-            [("llm-header-router", {
-                "headerName": showcase("tier-routing")["route"]["header"], "defaultProvider": "standard",
-                "mappings": [{"headerValue": tier, "provider": tier} for tier in tiers]})]
-            + [(f"openai-to-{prov['id']}-transformer", {"providerId": tier, "model": prov["models"][size]})
-               for tier, (prov, size) in tiers.items()])
+            {"standard": (default, "small"), "premium": (routed, "large")}, "standard")
+
+    # EU customers only ever go to the provider hosted in the EU; without the
+    # header, the request is treated as European.
+    default, routed = _route_providers("eu-residency")
+    if default and routed:
+        lanes["eu-residency"] = _header_lane(
+            "eu-residency", "EU Data Residency", default, routed,
+            {"europe": (default, "small"), "elsewhere": (routed, "small")}, "europe")
     return lanes
+
+
+def _header_lane(card_id: str, display_name: str, default: dict, routed: dict,
+                 mapping: dict, fallback: str) -> dict:
+    """A lane llm-header-router switches on the header of the card's selector:
+    mapping is {header value: (provider, model size)}, fallback the value the
+    router uses when the header is missing. Each provider's transformer,
+    attached after the router, supplies the model."""
+    return _cross_lane(
+        card_id, display_name, default, routed,
+        [{"id": prov["providerId"], "as": value} for value, (prov, _) in mapping.items()],
+        [("llm-header-router", {
+            "headerName": showcase(card_id)["selector"]["header"], "defaultProvider": fallback,
+            "mappings": [{"headerValue": value, "provider": value} for value in mapping]})]
+        + [(f"openai-to-{prov['id']}-transformer", {"providerId": value, "model": prov["models"][size]})
+           for value, (prov, size) in mapping.items()])
 
 
 ALL_LANES = {}
@@ -660,12 +756,10 @@ def ensure_gateway_registered(gateway_id: str, display_name: str) -> bool:
 
 
 def restart_gateway_controller():
-    gw_dir = ROOT / "ai-gateway"
-    subprocess.run(
-        ["docker", "compose", "up", "-d", "--force-recreate", "gateway-controller"],
-        cwd=str(gw_dir), check=True,
-        env={**os.environ, **gateway_ports()},  # the same ports as run-local.sh, offset included
-    )
+    """Through the same script as run-local.sh, so the controller comes back
+    with all its settings: ports, analytics, embeddings key."""
+    subprocess.run([str(ROOT / "scripts" / "gateway-compose.sh"),
+                    "up", "-d", "--force-recreate", "gateway-controller"], check=True)
 
 
 def wait_for_gateway_active(gateway_id: str, timeout_s: int = 300):
@@ -887,7 +981,8 @@ def issue_key(lane_id: str) -> tuple[str, str]:
     return key_id, key_value
 
 
-def wait_for_key_live(context: str, messages_suffix: str, key: str, timeout_s: int = 180) -> str:
+def wait_for_key_live(lane_id: str, key_id: str, context: str, messages_suffix: str, key: str,
+                      timeout_s: int = 180) -> str:
     """A freshly issued key travels to the runtime over its own APIKeyState
     xDS channel, separate from the PolicyChainConfig one route_is_live()
     checks — the two can and do desync (observed: policy chain resynced
@@ -895,13 +990,25 @@ def wait_for_key_live(context: str, messages_suffix: str, key: str, timeout_s: i
     leaving a just-issued key rejected for a while). Confirms this specific
     key is actually accepted before we hand it to ai-chatbot.
 
-    Returns platform_api.gateway_verdict()'s last answer: "live" on success,
-    otherwise why it never got there. Only the gateway's own replies count
-    against the key -- a 404 used to pass as "accepted", which hid a route
-    that never deployed."""
+    Asks the gateway's controller whether it holds this key, active, so no
+    request crosses the gateway. The controller names a key after its id in
+    the control plane, not its display name (cut to 40 characters there).
+    Without a controller to ask, a probe sends the key through the gateway
+    instead.
+
+    Returns platform_api.gateway_verdict()'s vocabulary: "live" on success,
+    otherwise why it never got there."""
     verdict = "transient"
     for _ in range(timeout_s // 2):
-        verdict = probe(context, messages_suffix, key)
+        status, resp = gateway_mgmt("GET", f"/llm-proxies/{lane_id}/api-keys")
+        if status == 200:
+            held = any(k.get("name") == key_id and k.get("status") == "active"
+                       for k in resp.get("apiKeys") or [])
+            verdict = "live" if held else "key-rejected"
+        elif status == 404:
+            verdict = "no-route"
+        else:
+            verdict = probe(context, messages_suffix, key)
         if verdict == "live":
             return verdict
         time.sleep(2)
@@ -945,7 +1052,7 @@ def provision_lane(lane: dict, provider_ref: str, display_prefix: str,
     else:
         print(f"  api key: {key}  (no showcases.json entry — not wired into ai-chatbot)")
 
-    verdict = wait_for_key_live(lane["context"], messages_suffix, key)
+    verdict = wait_for_key_live(lane_id, key_id, lane["context"], messages_suffix, key)
     if verdict != "live":
         sys.exit("  " + KEY_NOT_LIVE[verdict].format(context=lane["context"], endpoint=GATEWAY_ENDPOINT))
     print("  key confirmed live on the gateway")
@@ -998,7 +1105,7 @@ def restart_ai_chatbot():
     log = open(AI_CHATBOT_LOG_FILE, "w")
     # -u: unbuffered, or the startup banner (the wiring table worth reading
     # in this log) sits in stdout's buffer and never reaches the file.
-    proc = subprocess.Popen(["python3", "-u", "server.py"], cwd=str(ROOT / "ai-chatbot"),
+    proc = subprocess.Popen([sys.executable, "-u", "server.py"], cwd=str(ROOT / "ai-chatbot"),
                              stdout=log, stderr=log, start_new_session=True)
     time.sleep(2)
     if proc.poll() is not None:
@@ -1019,13 +1126,28 @@ def _items(resp) -> list:
     return []
 
 
+def _list_all(path: str):
+    """(status, every item) of a listing, page after page: the control plane
+    returns 20 items per page unless asked for more."""
+    items, sep = [], "&" if "?" in path else "?"
+    while True:
+        status, resp = api("GET", f"{path}{sep}limit=100&offset={len(items)}")
+        if status != 200:
+            return status, resp
+        page = _items(resp)
+        items += page
+        total = (resp.get("pagination") or {}).get("total") if isinstance(resp, dict) else None
+        if not page or total is None or len(items) >= total:
+            return 200, items
+
+
 def _existing(resource: str, project_ids: list) -> dict:
     """id -> resource for every existing /{resource}, across every project
     when the endpoint is project-scoped (it 400s without ?projectId=) -- all
     projects deploy to the same gateway, so a context in any of them
     collides. Each item is tagged with its "_project"; context is filled in
     from a per-item GET when the listing is only a summary."""
-    status, resp = api("GET", f"/{resource}")
+    status, resp = _list_all(f"/{resource}")
     if status == 200:
         pages = [(None, resp)]
     # Worded differently per endpoint: "projectId query parameter is
@@ -1033,7 +1155,7 @@ def _existing(resource: str, project_ids: list) -> dict:
     elif status == 400 and re.search(r"project\s*id", str(resp), re.IGNORECASE):
         pages = []
         for pid in project_ids:
-            status, resp = api("GET", f"/{resource}?projectId={pid}")
+            status, resp = _list_all(f"/{resource}?projectId={pid}")
             if status != 200:
                 sys.exit(f"  could not list /{resource} in project {pid!r}: {status} {resp}")
             pages.append((pid, resp))

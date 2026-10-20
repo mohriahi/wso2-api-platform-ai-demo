@@ -18,8 +18,9 @@ export const llmSelect   = document.getElementById('llm-provider');
 
 /* -- control strip ------------------------------------------------------- */
 export const routeEl     = document.getElementById('route');
-export const tierBox     = document.getElementById('tier');
-export const tierSelect  = document.getElementById('tier-select');
+export const selectorBox    = document.getElementById('selector');
+export const selectorLabel  = document.getElementById('selector-label');
+export const selectorSelect = document.getElementById('selector-select');
 export const signinBox   = document.getElementById('signin');
 export const signinWho   = document.getElementById('signin-who');
 export const signinLink  = document.getElementById('signin-link');
@@ -46,6 +47,7 @@ export const transcript  = document.getElementById('transcript');
 export const intro       = document.getElementById('intro');
 export const introHead   = document.getElementById('intro-head');
 export const introBody   = document.getElementById('intro-body');
+export const introRefs   = document.getElementById('intro-refs');
 export const introChips  = document.getElementById('intro-chips');
 export const form        = document.getElementById('form');
 export const input       = document.getElementById('input');
@@ -225,9 +227,6 @@ function detailHtml(detail) {
       ...((assessments.wordPolicy || {}).customWords || []).map((w) => 'word "' + w.match + '"'),
     ];
     rows.push(['Tripped', hits.join(' · ') || JSON.stringify(assessments)]);
-  } else if (assessments && Array.isArray(assessments.invalidUrls)) {
-    // A link check lists the links that did not open.
-    rows.push(['Links that failed', assessments.invalidUrls.join(' · ')]);
   } else if (assessments) {
     rows.push(['Detail', JSON.stringify(assessments)]);
   }

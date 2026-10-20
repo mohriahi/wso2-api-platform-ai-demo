@@ -311,6 +311,23 @@ body {
 
 .intro p { margin: 0 auto 22px; color: var(--text-muted); max-width: 46ch; }
 
+.intro-refs {
+  display: grid; gap: 10px;
+  max-width: 56ch; margin: 0 auto 22px;
+  text-align: left;
+}
+.intro-refs:empty { display: none; }
+.intro-ref {
+  border-left: 3px solid var(--accent);
+  padding: 2px 0 2px 12px;
+}
+.intro-ref .ref-group {
+  display: block;
+  font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.intro .intro-ref p { margin: 2px 0 0; max-width: none; font-size: 14px; color: var(--text-strong); }
+
 .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 
 .chip {
@@ -896,6 +913,37 @@ body[data-rail="none"] .workspace > .shell { grid-template-columns: minmax(0, va
 
 .card p { margin: 0; font-size: 14px; color: var(--text-muted); }
 
+/* The OWASP risk or EU AI Act article, before a card's title and in the chat
+ * intro. */
+.ref-code {
+  display: inline-block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .78em;
+  font-weight: 700;
+  color: var(--accent-text);
+  background: var(--accent-deep);
+  border-radius: 6px;
+  padding: 1px 7px;
+  vertical-align: .1em;
+}
+
+/* An EU AI Act article that binds high-risk systems only. */
+.ref-scope {
+  display: inline-block;
+  font-size: 10.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+  color: #3D2A00; background: #F5B700;
+  border-radius: 6px; padding: 1px 6px; margin-right: 4px;
+  vertical-align: .1em;
+}
+
+/* What the card answers in a group like OWASP or the EU AI Act. */
+.card .card-ref {
+  font-size: 13px;
+  color: var(--text-strong);
+  border-left: 3px solid var(--accent);
+  padding-left: 8px;
+}
+
 /* One chip per policy, so a long pair wraps between names, never inside one. */
 .card-cap {
   display: flex; flex-wrap: wrap; gap: 6px;
@@ -957,13 +1005,17 @@ body[data-rail="none"] .workspace > .shell { grid-template-columns: minmax(0, va
 }
 
 
-/* ---------- customer tier (Customer tier routing) ---------- */
+/* ---------- selector (customer tier, region, id) ---------- */
 
-.tier { display: flex; align-items: center; gap: 8px; }
-.tier[hidden] { display: none; }
-/* Filled, unlike the other controls, and coloured by tier: navy for
-   standard, gold for premium. */
-.tier select {
+.selector { display: flex; align-items: center; gap: 8px; }
+.selector[hidden] { display: none; }
+/* Under the label: in production the gateway reads this from the token, the
+   selector only stands in for it in the demo. */
+.selector-text { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; }
+.selector-note { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+/* Filled, unlike the other controls, and coloured by value: navy for the
+   first one, gold for the others. */
+.selector select {
   appearance: none;
   font: inherit; font-size: 13.5px; font-weight: 700;
   color: var(--surface);
@@ -971,12 +1023,12 @@ body[data-rail="none"] .workspace > .shell { grid-template-columns: minmax(0, va
   border: 1px solid var(--text-strong); border-radius: 999px;
   padding: 7px 32px 7px 16px; cursor: pointer;
 }
-.tier select[data-tier="premium"] {
+.selector select[data-alt="true"] {
   color: #3D2A00;
   background: #F5B700 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%233D2A00' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 12px center;
   border-color: #F5B700;
 }
-.tier select:hover { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.selector select:hover { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
 
 
 /* ---------- MCP sign-in (cards behind mcp-auth) ---------- */

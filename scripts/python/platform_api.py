@@ -74,10 +74,15 @@ def gateway_ports() -> dict:
 
 
 GATEWAY_ENDPOINT = os.environ.get("GATEWAY_ENDPOINT") or f"localhost:{gateway_ports()['GATEWAY_HTTPS_PORT']}"
-# The gateway's own management API, for what the control plane does not handle
-# yet (A2A agents). Same admin account as AI Workspace.
+
+# The gateway's own management API: asks the gateway what it holds without
+# sending traffic through it, so the checks leave nothing in analytics, and
+# deploys what the control plane does not handle yet (A2A agents). Same
+# admin account as AI Workspace. Known for this repo's own gateway; for
+# another one, set GATEWAY_MGMT_URL, or the checks probe the gateway instead.
 GATEWAY_MGMT = (os.environ.get("GATEWAY_MGMT_URL")
-                or f"http://localhost:{gateway_ports()['GATEWAY_CONTROLLER_REST_PORT']}").rstrip("/")
+                or ("" if os.environ.get("GATEWAY_ENDPOINT")
+                    else f"http://localhost:{gateway_ports()['GATEWAY_CONTROLLER_REST_PORT']}")).rstrip("/")
 
 # One entry per upstream LLM, loaded from providers.json at the repo root --
 # not defined here, because ai-chatbot/server.py needs the exact same
@@ -215,7 +220,8 @@ def request(method: str, url: str, data=None, headers=None):
     for k, v in (headers or {}).items():
         req.add_header(k, v)
     try:
-        with _opener.open(req) as resp:
+        # A connection that never answers would otherwise hang the whole run.
+        with _opener.open(req, timeout=60) as resp:
             raw = resp.read()
             return resp.status, (json.loads(raw) if raw else None)
     except urllib.error.HTTPError as e:
@@ -235,12 +241,6 @@ def request(method: str, url: str, data=None, headers=None):
 def api(method: str, path: str, data=None):
     """Call against the ai-workspace control-plane API (requires login() first)."""
     return request(method, f"{AIW}/ai-workspace/proxy/api/v0.9{path}", data)
-
-
-def gateway_mgmt(method: str, path: str, data=None):
-    """Call against the gateway's management API (basic auth, admin account)."""
-    token = base64.b64encode(f"{ADMIN_USERNAME}:{ADMIN_PASSWORD}".encode()).decode()
-    return request(method, f"{GATEWAY_MGMT}/api/management/v1{path}", data, {"Authorization": "Basic " + token})
 
 
 def login(attempts: int = 5):
@@ -298,9 +298,9 @@ def bedrock_safety_missing() -> str:
 
 def gateway_verdict(status: int, body) -> str:
     """Classifies a probe response by WHO produced it, since a probe that
-    gets through the gateway reaches the real upstream, whose own 401/404
-    (Anthropic: bad upstream key, unknown model "probe") must not be read as
-    the gateway's. Returns:
+    gets through the gateway reaches the real upstream, whose own 400/401/404
+    (an empty request, a bad upstream key) must not be read as the gateway's.
+    Returns:
       "transient"     -- no HTTP answer at all (status 0)
       "no-route"      -- Envoy has no route for this context: not deployed
       "key-rejected"  -- api-key-auth refused the key (or no key was sent)
@@ -320,10 +320,10 @@ def gateway_verdict(status: int, body) -> str:
 
 def probe(context: str, messages_suffix: str, key: str = None) -> str:
     """One POST straight at the gateway (not the control plane), classified
-    by gateway_verdict()."""
+    by gateway_verdict(). The body is empty on purpose: the verdict never
+    depends on it, and a made-up model name would show up in analytics."""
     status, body = request("POST", f"https://{GATEWAY_ENDPOINT}{context}{messages_suffix}",
-                           {"model": "probe", "max_tokens": 1, "messages": []},
-                           {"X-API-Key": key} if key else None)
+                           {}, {"X-API-Key": key} if key else None)
     return gateway_verdict(status, body)
 
 
@@ -331,6 +331,37 @@ def route_is_live(context: str, messages_suffix: str) -> bool:
     """Envoy matched the route -- anything but a missing route or no answer
     (a 401 for the missing key still proves the route and its chain exist)."""
     return probe(context, messages_suffix) in ("live", "key-rejected")
+
+
+def gateway_mgmt(method: str, path: str, data=None):
+    """Call against the gateway's management API (basic auth, admin account).
+    Status 0 when there is none to call (see GATEWAY_MGMT)."""
+    if not GATEWAY_MGMT:
+        return 0, None
+    token = base64.b64encode(f"{ADMIN_USERNAME}:{ADMIN_PASSWORD}".encode()).decode()
+    return request(method, f"{GATEWAY_MGMT}/api/management/v1{path}", data, {"Authorization": "Basic " + token})
+
+
+def gateway_state(resource: str, resource_id: str):
+    """(state, deployedAt) of a resource as the gateway holds it, ("absent",
+    None) when it holds none, None when its controller can't be asked."""
+    status, resp = gateway_mgmt("GET", f"/{resource}/{resource_id}")
+    if status == 404:
+        return ("absent", None)
+    if status != 200:
+        return None
+    held = resp.get("status") or {}
+    return (held.get("state"), held.get("deployedAt"))
+
+
+def on_gateway(resource: str, resource_id: str, before, context: str, messages_suffix: str) -> bool:
+    """The gateway holds a newer deployment of this resource than `before`
+    (gateway_state() taken before deploying). Without a controller to ask,
+    a probe checks that the route answers instead."""
+    now = gateway_state(resource, resource_id)
+    if now is None:
+        return route_is_live(context, messages_suffix)
+    return now[0] == "deployed" and now != before
 
 
 def deploy(resource_id: str, context: str, messages_suffix: str,
@@ -341,6 +372,7 @@ def deploy(resource_id: str, context: str, messages_suffix: str,
     retries on failure. `resource` is "llm-proxies" (default, one per lane)
     or "llm-providers" (one per PROVIDERS entry)."""
     for attempt in range(1, attempts + 1):
+        before = gateway_state(resource, resource_id)
         status, resp = api("POST", f"/{resource}/{resource_id}/deployments",
                             {"name": "default", "base": "current", "gatewayId": GATEWAY_ID})
         if status != 201:
@@ -357,8 +389,8 @@ def deploy(resource_id: str, context: str, messages_suffix: str,
             status, resp = api("GET", f"/{resource}/{resource_id}/deployments/{dep_id}")
             if resp.get("status") in ("DEPLOYED", "FAILED"):
                 break
-            if route_is_live(context, messages_suffix):
-                print("  status still DEPLOYING but the route already answers on the gateway — proceeding")
+            if on_gateway(resource, resource_id, before, context, messages_suffix):
+                print("  status still DEPLOYING but the gateway already holds it, proceeding")
                 return
         print(f"  deploy status: {resp.get('status')} (attempt {attempt}/{attempts})")
         if resp.get("status") == "DEPLOYED":
@@ -368,8 +400,8 @@ def deploy(resource_id: str, context: str, messages_suffix: str,
         # restart, logged there as "Upsert skipped (stale event)") even
         # though the runtime deploy actually completed — confirmed by curling
         # the gateway directly.
-        if route_is_live(context, messages_suffix):
-            print("  status stuck at DEPLOYING but the route answers on the gateway — proceeding")
+        if on_gateway(resource, resource_id, before, context, messages_suffix):
+            print("  status stuck at DEPLOYING but the gateway holds it, proceeding")
             return
         # A real DEPLOYMENT_TIMEOUT (route confirmed NOT live) is usually the
         # controller/runtime being starved of CPU by something else on the
@@ -378,7 +410,7 @@ def deploy(resource_id: str, context: str, messages_suffix: str,
         if attempt < attempts:
             print(f"  deployment failed ({resp.get('statusReason')}) — retrying")
     sys.exit(f"  deployment never reached DEPLOYED after {attempts} attempts, "
-              f"and the route isn't live either: {resp}")
+              f"and the gateway doesn't hold it either: {resp}")
 
 
 # =============================================================================

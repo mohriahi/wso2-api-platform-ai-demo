@@ -106,7 +106,7 @@ def _build_upstream_openai(showcase, messages, prompt):
     wire_messages = ([{"role": "system", "content": prompt}] if prompt else []) + messages
     upstream = {"model": showcase["model"], "max_tokens": showcase["maxTokens"],
                 "stream": showcase["stream"], "messages": wire_messages}
-    if showcase["model"] is None:   # the gateway picks it (Customer tier routing)
+    if showcase["model"] is None:   # the gateway picks it from the selector's header
         del upstream["model"]
     if showcase["stream"]:
         # Otherwise usage only ever comes back on the whole-response path --
@@ -678,7 +678,7 @@ def resolve_showcase(showcase_id, provider_id=DEFAULT_PROVIDER_ID):
     own_key = _sc_conf(showcase_id, "API_KEY", conf_provider)
     # MCP proxies take no key (the platform issues keys for LLM resources only).
     fallback_key = CONF["GATEWAY_API_KEY"] if conf_provider == DEFAULT_PROVIDER_ID and not mcp else ""
-    tiers = (entry.get("route") or {}).get("tiers") or []
+    selector = entry.get("selector")
     return {
         "id": showcase_id,
         "title": entry.get("title") or showcase_id,
@@ -692,11 +692,12 @@ def resolve_showcase(showcase_id, provider_id=DEFAULT_PROVIDER_ID):
         # the operation are both part of the path) builds the real request
         # URL from. None when there's no context at all (unwired).
         "baseUrl": (gateway_base() + context) if context else None,
-        # A card with tiers names no model: the gateway picks the provider and
-        # the model from the tier header.
-        "model": None if tiers else str(model),
-        "tiers": tiers,
-        "tierHeader": (entry.get("route") or {}).get("header"),
+        # A routed card with a selector names no model: the gateway picks the
+        # provider and the model from the selector's header.
+        "model": None if (entry.get("route") and selector) else str(model),
+        "selector": selector,
+        # What a 429 means on this card, when it is not the cost budget.
+        "limit": (entry.get("gateway") or {}).get("limit"),
         "stream": bool(stream),
         "maxTokens": _clamp_tokens(tokens, CONF["MAX_TOKENS"]),
         "systemPrompt": system_prompt(prompt),
@@ -800,6 +801,15 @@ def guardrail_verdict(raw):
         return False
     message = body.get("message") if isinstance(body, dict) else None
     return isinstance(message, dict) and message.get("action") == "GUARDRAIL_INTERVENED"
+
+
+def block_direction(raw):
+    """REQUEST or RESPONSE: which side a guardrail refused, when it says so."""
+    try:
+        message = json.loads(raw).get("message")
+    except (ValueError, AttributeError):
+        return None
+    return message.get("direction") if isinstance(message, dict) else None
 
 
 def classify_gateway_error(status, headers, body, showcase):
@@ -1252,12 +1262,13 @@ class Handler(BaseHTTPRequestHandler):
         # that. This is the gateway-side api-key-auth credential, per lane.
         if showcase["apiKey"]:
             headers[CONF["GATEWAY_API_KEY_HEADER"]] = showcase["apiKey"]
-        # The tier selector stands in for a claim of the signed-in customer's
-        # token. Only the card's own tiers reach the gateway; anything else is
-        # the first one.
-        if showcase["tiers"]:
-            tier = payload.get("tier")
-            headers[showcase["tierHeader"]] = tier if tier in showcase["tiers"] else showcase["tiers"][0]
+        # The selector stands in for a claim of the signed-in customer's token
+        # (tier, region, id). Only the card's own values reach the gateway;
+        # anything else is the first one.
+        selector = showcase["selector"]
+        if selector:
+            choice = payload.get("choice")
+            headers[selector["header"]] = choice if choice in selector["values"] else selector["values"][0]
 
         request = urllib.request.Request(
             url, data=json.dumps(upstream).encode(),
@@ -1279,9 +1290,14 @@ class Handler(BaseHTTPRequestHandler):
                        "showcase": showcase_id,
                        "gatewayBody": body[:4000]}
             payload.update(gateway_meta(exc.headers))
-            if outcome == "budget_exhausted":
+            if outcome == "budget_exhausted" and showcase["limit"]:
+                payload["error"] = showcase["limit"]["message"]
+                payload["limitTitle"] = showcase["limit"]["title"]
+            elif outcome == "budget_exhausted":
                 payload["error"] = ("the gateway refused this call: the "
                                     "cost budget for this provider is exhausted")
+            elif outcome == "policy_block" and block_direction(body) == "RESPONSE":
+                payload["error"] = "a gateway policy blocked the model's answer"
             elif outcome == "policy_block":
                 payload["error"] = ("a gateway policy blocked this request "
                                     "before any model was called")

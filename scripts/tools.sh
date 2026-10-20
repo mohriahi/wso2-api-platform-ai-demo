@@ -47,6 +47,10 @@ load_demo_env() {
   set -a
   source "$root/demo.env"
   set +a
+  # On this branch the gateway's version comes from its build file, whatever
+  # demo.env says, so switching between main and this branch needs no edit.
+  AI_GATEWAY_VERSION="$(awk '/^gateway:/ {g = 1} g && /^  version:/ {print $2; exit}' "$root/ai-gateway/build.yaml")"
+  export AI_GATEWAY_VERSION
 }
 
 # Moves every gateway port up by the port offset from demo.env (1 turns 8443
@@ -61,9 +65,9 @@ export_gateway_ports() {
 # Turns demo.env's ANALYTICS_MODE plus secrets/api-keys.env's Moesif id into
 # $ANALYTICS_ENABLED / $ANALYTICS_MOESIF_ID / $ANALYTICS_COMPOSE_PROFILES.
 # Pass these as a command-scoped prefix on the one docker compose call that
-# needs them (see run-local.sh) -- not exported globally, since
+# needs them (see gateway-compose.sh) -- not exported globally, since
 # COMPOSE_PROFILES means something different to ai-workspace's own compose
-# call in the same script and would otherwise leak into it.
+# call and would otherwise leak into it.
 resolve_analytics() {
   local root="$1"
   ANALYTICS_MOESIF_ID="$(sed -n 's/^APIP_GW_ANALYTICS_PUBLISHERS_MOESIF_APPLICATION_ID=//p' \
@@ -100,7 +104,7 @@ resolve_analytics() {
 # hardcodes embedding_provider = "MISTRAL"; see secrets/api-keys.env.example's
 # own TODO for when that might change). Sets $EMBEDDING_PROVIDER_API_KEY,
 # passed the same scoped way as resolve_analytics()'s output (see
-# run-local.sh).
+# gateway-compose.sh).
 resolve_embedding_key() {
   local root="$1"
   EMBEDDING_PROVIDER_API_KEY="$(sed -n 's/^EMBEDDINGS_PROVIDER_API_KEY=//p' \
