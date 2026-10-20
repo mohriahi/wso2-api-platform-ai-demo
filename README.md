@@ -111,9 +111,9 @@ control plane: Time-based routing and Cost-based routing (their proxies are
 refused when the gateway syncs them).
 
 The LLM Gateway page also gathers its cards under the **OWASP Top 10 for LLMs
-(2026)**, the MCP Gateway page under the **OWASP Top 10 for Agentic
-Applications**, and both under **Compliance (EU AI Act)**, with one line per
-card on the risk or the article it answers.
+(2026)**, the MCP and A2A Gateway pages under the **OWASP Top 10 for Agentic
+Applications**, and the LLM and MCP pages under **Compliance (EU AI Act)**,
+with one line per card on the risk or the article it answers.
 
 ## Prerequisites
 

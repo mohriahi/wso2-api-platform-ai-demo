@@ -2484,7 +2484,10 @@
   },
   {
     "id": "a2a-guardrail",
-    "group": "Agent governance",
+    "group": [
+      "Agent governance",
+      "OWASP Top 10 for Agentic Applications"
+    ],
     "a2a": {
       "agent": "Acme Roaming Agent",
       "context": "/acme-roaming-guard",
@@ -2550,6 +2553,12 @@
     "gateway": {
       "stream": false,
       "blockStatus": 422
+    },
+    "refs": {
+      "OWASP Top 10 for Agentic Applications": {
+        "code": "ASI07",
+        "text": "Insecure inter-agent communication: a message to {brand}'s roaming agent carrying an attack is stopped at the gateway, before the agent reads it."
+      }
     }
   },
   {
