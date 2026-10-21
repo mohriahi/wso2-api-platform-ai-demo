@@ -100,8 +100,8 @@ def budget_for(provider: dict) -> float:
     costBudget. Each one is about one detailed answer of the provider's large
     model, input included: 1,200 tokens in (the catalogue) and 600 out, at the
     prices in ai-gateway/configs/llm-pricing/model_prices.json. That is $0.02
-    for claude-opus-4-6, $0.00036 for ministral-14b-latest and $0.0096 for
-    gemini-3.1-pro-preview. With gcra (RATE_LIMIT_ALGORITHM), a smaller
+    for claude-opus-4-6, $0.00036 for ministral-14b-latest and $0.0024 for
+    gemini-3-flash-preview. With gcra (RATE_LIMIT_ALGORITHM), a smaller
     budget would leave a debt that the gateway carries over to the next
     windows, keeping the large model away for many minutes. ai-chatbot/server.py exposes this field via
     /api/providers for the frontend's budget meter (costBudgetFor() in

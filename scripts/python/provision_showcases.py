@@ -159,6 +159,19 @@ SECRET = (
     r"|\bxox[baprs]-[A-Za-z0-9-]{10,}|\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}")
 
 
+def operation_paths(provider: dict, base_id: str) -> list:
+    """Where a router's operation policy attaches: the provider's messages path.
+    A provider that names the model in the path (Gemini) gets the path of the
+    model the card sends, for the plain and the streaming call, or the policy
+    would never see the card's requests."""
+    path = provider["messagesSuffix"]
+    if provider["requestModel"]["location"] != "pathParam":
+        return [path]
+    role = (showcase(base_id).get("overrides") or {}).get("model", "small")
+    path = re.sub(r"models/[^/:]+", "models/" + provider["models"][role], path)
+    return [path, path.replace(":generateContent", ":streamGenerateContent")]
+
+
 def lane_templates(provider: dict) -> dict:
     """The showcase catalogue, generic across providers. Keyed by base_id —
     the showcases.json id, shared by every provider's version of that lane."""
@@ -471,12 +484,12 @@ def lane_templates(provider: dict) -> dict:
             # implementation, not just accepted-and-ignored.
             "supportedRequestModelLocations": {"payload", "header", "queryParam", "pathParam"},
             "operationPolicies": [{"name": "time-based-model-routing", "version": "v0", "paths": [{
-                "path": path, "methods": ["POST"], "params": {
+                "path": op_path, "methods": ["POST"], "params": {
                     "timezone": setting("PEAK_TIMEZONE"),
                     "schedules": [{"from": peak_start, "to": peak_end, "model": {"modelName": small}}],
                     "fallback": {"modelName": large},
                     "requestModel": request_model,
-                }}]}],
+                }} for op_path in operation_paths(provider, "time-based-routing")]}],
         },
         "cost-based-routing": {
             "context_suffix": "cost-routing", "displayName": "Cost-Based Routing", "wired": True,
@@ -491,7 +504,7 @@ def lane_templates(provider: dict) -> dict:
             # reported, budget not charged" and the budget never moves.
             "operationPolicies": [
                 {"name": "cost-based-model-routing", "version": "v0", "paths": [{
-                    "path": path, "methods": ["POST"], "params": {
+                    "path": op_path, "methods": ["POST"], "params": {
                         "modelBudgets": [
                             {"model": {"modelName": large}, "budgetLimits": [{"amount": budget, "duration": budget_duration("cost-based-routing")}]},
                             {"model": {"modelName": small}, "budgetLimits": [{"amount": 1000, "duration": budget_duration("cost-based-routing")}]},
@@ -499,9 +512,10 @@ def lane_templates(provider: dict) -> dict:
                         "onExhausted": "fallback",
                         "fallback": {"modelName": small},
                         "requestModel": request_model,
-                    }}]},
+                    }} for op_path in operation_paths(provider, "cost-based-routing")]},
                 {"name": "llm-cost", "version": "v1", "paths": [{
-                    "path": path, "methods": ["POST"], "params": {}}]},
+                    "path": op_path, "methods": ["POST"], "params": {}}
+                    for op_path in operation_paths(provider, "cost-based-routing")]},
             ],
         },
         # model-round-robin has the documented requestModel-at-global-scope defect

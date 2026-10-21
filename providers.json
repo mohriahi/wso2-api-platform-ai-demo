@@ -55,10 +55,10 @@
     "displayName": "Gemini",
     "enabled": true,
     "wire": "gemini",
-    "messagesSuffix": "/v1beta/models/gemini-2.5-flash:generateContent",
+    "messagesSuffix": "/v1beta/models/gemini-2.5-flash-lite:generateContent",
     "models": {
-      "small": "gemini-2.5-flash",
-      "large": "gemini-3.1-pro-preview"
+      "small": "gemini-2.5-flash-lite",
+      "large": "gemini-3-flash-preview"
     },
     "requestModel": {
       "location": "pathParam",
@@ -72,6 +72,6 @@
     "upstreamUrl": "https://generativelanguage.googleapis.com",
     "authHeader": "x-goog-api-key",
     "authValuePrefix": "",
-    "costBudget": 0.0096
+    "costBudget": 0.0024
   }
 ]

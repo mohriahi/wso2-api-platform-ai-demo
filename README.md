@@ -126,8 +126,8 @@ service.
 
 This demo has been tested with paid **Anthropic** credit and a free
 **Mistral** API key, the combination we recommend. **Gemini**'s free tier
-is more restrictive: some models aren't available on a newly created key,
-and you're more likely to hit rate limits.
+is too small for a demo: no pro model, and about 20 requests per model per
+day, which a few cards use up. Use a Gemini key with billing.
 
 Intelligent routing spans two providers: it needs both an **Anthropic** and
 a **Mistral** key, and is skipped when either is disabled in
