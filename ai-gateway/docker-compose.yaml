@@ -47,13 +47,14 @@ services:
     # Named explicitly, not the whole secrets/api-keys.env as an env_file:
     # that file also holds the LLM provider keys, which this container has
     # no use for. Both resolved per-call (resolve_analytics() /
-    # resolve_embedding_key() in scripts/tools.sh), never stored in a file.
+    # resolve_gateway_keys() in scripts/tools.sh), never stored in a file.
     # APIP_GW_ANALYTICS_ENABLED is needed here too: the controller writes
     # Envoy's access log to the runtime's analytics service only when on.
     environment:
       - APIP_GW_ANALYTICS_PUBLISHERS_MOESIF_APPLICATION_ID=${APIP_GW_ANALYTICS_PUBLISHERS_MOESIF_APPLICATION_ID:-}
       - APIP_GW_ANALYTICS_ENABLED=${APIP_GW_ANALYTICS_ENABLED:-false}
       - APIP_GW_EMBEDDING_PROVIDER_API_KEY=${APIP_GW_EMBEDDING_PROVIDER_API_KEY:-}
+      - APIP_GW_CLASSIFIER_API_KEY=${APIP_GW_CLASSIFIER_API_KEY:-}
     volumes:
       - controller-data:/app/data
       - ./configs/config.toml:/etc/gateway-controller/config.toml:ro
@@ -99,13 +100,15 @@ services:
     # Same reasoning as gateway-controller above. APIP_GW_ANALYTICS_ENABLED
     # also drives config.toml's templated [analytics] enabled, and
     # APIP_GW_EMBEDDING_PROVIDER_API_KEY its embedding_provider_api_key
-    # (semantic-cache, semantic-model-routing) -- this is the service that
-    # actually enforces/runs both on real traffic.
+    # (semantic-cache, semantic-model-routing), APIP_GW_CLASSIFIER_API_KEY the
+    # classifier's (intelligent-model-routing) -- this is the service that
+    # actually enforces/runs them on real traffic.
     environment:
       - GATEWAY_CONTROLLER_HOST=gateway-controller
       - APIP_GW_ANALYTICS_PUBLISHERS_MOESIF_APPLICATION_ID=${APIP_GW_ANALYTICS_PUBLISHERS_MOESIF_APPLICATION_ID:-}
       - APIP_GW_ANALYTICS_ENABLED=${APIP_GW_ANALYTICS_ENABLED:-false}
       - APIP_GW_EMBEDDING_PROVIDER_API_KEY=${APIP_GW_EMBEDDING_PROVIDER_API_KEY:-}
+      - APIP_GW_CLASSIFIER_API_KEY=${APIP_GW_CLASSIFIER_API_KEY:-}
     volumes:
       - ./configs/config.toml:/etc/policy-engine/config.toml:ro
       - ./configs/llm-pricing/model_prices.json:/etc/policy-engine/llm-pricing/model_prices.json:ro

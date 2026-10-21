@@ -12,12 +12,14 @@
 # ANALYTICS_MODE; on the VM, set it by hand alongside a real application_id.
 # Default is "false" because enabled=true with a blank id fails config
 # validation and the container won't start.
-# CHANGED: Semantic cache policy defaults — embedding provider + vector DB.
-# API key comes from api-platform.env (APIP_GW_EMBEDDING_PROVIDER_API_KEY).
-embedding_provider = "MISTRAL"
-embedding_provider_endpoint = "https://api.mistral.ai/v1/embeddings"
-embedding_provider_model = "mistral-embed"
-embedding_provider_dimension = 1024
+# The embeddings model of the semantic cards (caching, prompt and topic
+# guards), from the EMBEDDING_* settings in demo.env; Mistral's mistral-embed
+# when they are unset. Its key is EMBEDDINGS_PROVIDER_API_KEY in
+# secrets/api-keys.env. The vector database below stores its vectors.
+embedding_provider = '{{ env "EMBEDDING_PROVIDER" "MISTRAL" }}'
+embedding_provider_endpoint = '{{ env "EMBEDDING_ENDPOINT" "https://api.mistral.ai/v1/embeddings" }}'
+embedding_provider_model = '{{ env "EMBEDDING_MODEL" "mistral-embed" }}'
+embedding_provider_dimension = '{{ env "EMBEDDING_DIMENSION" "1024" }}'
 embedding_provider_api_key = '{{ env "APIP_GW_EMBEDDING_PROVIDER_API_KEY" "" }}'
 
 vector_db_provider = "REDIS"
@@ -166,35 +168,24 @@ batch_timeout         = "1s"
 max_export_batch_size = 512
 sampling_rate         = 1.0
 
-# CHANGED 2026-09-09: semantic-model-routing v0.9.0 embedding settings.
-#
-# NOT a duplicate of the top-level embedding_* keys near the head of this file.
-# Those are read by semantic-cache. This policy resolves a CEL path into this
-# section instead, so the top-level keys do nothing for it. Two namespaces,
-# near-identical key names.
-#
-# The section is named _v1 even though the policy is v0.9.0 -- that is what the
-# shipped policy definition asks for. There is no dimension key: the routing
-# schema has no dimension parameter at all.
-#
-# Reuses the Mistral credential already set for semantic-cache
-# (APIP_GW_EMBEDDING_PROVIDER_API_KEY in api-platform.env).
-
+# Semantic routing reads its embeddings settings here, not from the top-level
+# embedding_* keys: the same EMBEDDING_* settings and key. It accepts MISTRAL or
+# OPENAI only, and takes no dimension.
 [policy_configurations.semantic_model_routing_v1]
-embedding_provider          = "MISTRAL"
-embedding_provider_endpoint = "https://api.mistral.ai/v1/embeddings"
-embedding_provider_model    = "mistral-embed"
-embedding_provider_api_key  = "{{ env \"APIP_GW_EMBEDDING_PROVIDER_API_KEY\" \"\" }}"
+embedding_provider          = '{{ env "EMBEDDING_PROVIDER" "MISTRAL" }}'
+embedding_provider_endpoint = '{{ env "EMBEDDING_ENDPOINT" "https://api.mistral.ai/v1/embeddings" }}'
+embedding_provider_model    = '{{ env "EMBEDDING_MODEL" "mistral-embed" }}'
+embedding_provider_api_key  = '{{ env "APIP_GW_EMBEDDING_PROVIDER_API_KEY" "" }}'
 
-# intelligent-model-routing's classifier: an LLM that reads each question and
-# picks a routing rule. Mistral's chat API is OpenAI-compatible, hence
-# llm_provider "OPENAI". Same Mistral key as the embeddings above, and a
-# model the free tier serves (mistral-small-latest is rate-limited there).
+# Intelligent routing's classifier: an LLM that reads each question and picks
+# a routing rule, from the CLASSIFIER_* settings in demo.env; Mistral's
+# ministral-14b-latest when they are unset. Its key is CLASSIFIER_API_KEY in
+# secrets/api-keys.env, MISTRAL_API_KEY when that is blank.
 [policy_configurations.intelligent_model_routing_v1]
-llm_provider          = "OPENAI"
-llm_provider_endpoint = "https://api.mistral.ai/v1/chat/completions"
-llm_provider_model    = "ministral-14b-latest"
-llm_provider_api_key  = "{{ env \"APIP_GW_EMBEDDING_PROVIDER_API_KEY\" \"\" }}"
+llm_provider          = '{{ env "CLASSIFIER_PROVIDER" "OPENAI" }}'
+llm_provider_endpoint = '{{ env "CLASSIFIER_ENDPOINT" "https://api.mistral.ai/v1/chat/completions" }}'
+llm_provider_model    = '{{ env "CLASSIFIER_MODEL" "ministral-14b-latest" }}'
+llm_provider_api_key  = '{{ env "APIP_GW_CLASSIFIER_API_KEY" "" }}'
 
 # How the budgets and rate limits count (spend limit, cost-based routing, token
 # quota, MCP rate limit): RATE_LIMIT_ALGORITHM in demo.env, which lists the

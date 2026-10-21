@@ -12,7 +12,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$ROOT/scripts/tools.sh"
 load_demo_env "$ROOT"
 resolve_analytics "$ROOT"
-resolve_embedding_key "$ROOT"
+resolve_gateway_keys "$ROOT"
 export_gateway_ports "$ROOT"
 
 cd "$ROOT/ai-gateway"
@@ -20,4 +20,5 @@ APIP_GW_ANALYTICS_ENABLED="$ANALYTICS_ENABLED" \
 APIP_GW_ANALYTICS_PUBLISHERS_MOESIF_APPLICATION_ID="$ANALYTICS_MOESIF_ID" \
 COMPOSE_PROFILES="$ANALYTICS_COMPOSE_PROFILES" \
 APIP_GW_EMBEDDING_PROVIDER_API_KEY="$EMBEDDING_PROVIDER_API_KEY" \
+APIP_GW_CLASSIFIER_API_KEY="$CLASSIFIER_API_KEY" \
   exec docker compose "$@"

@@ -94,17 +94,18 @@ resolve_analytics() {
   esac
 }
 
-# The semantic-cache and semantic-model-routing policies both call an
-# embedding API -- its own credential, kept separate from any single
-# showcase's chat provider key (today it's always Mistral, config.toml
-# hardcodes embedding_provider = "MISTRAL"; see secrets/api-keys.env.example's
-# own TODO for when that might change). Sets $EMBEDDING_PROVIDER_API_KEY,
-# passed the same scoped way as resolve_analytics()'s output (see
-# gateway-compose.sh).
-resolve_embedding_key() {
+# The gateway's own keys, from secrets/api-keys.env: the embeddings
+# provider's (EMBEDDINGS_PROVIDER_API_KEY, for the semantic cards) and
+# Intelligent routing's classifier's (CLASSIFIER_API_KEY, MISTRAL_API_KEY when
+# blank). A key already in the environment wins. Sets
+# $EMBEDDING_PROVIDER_API_KEY and $CLASSIFIER_API_KEY, which gateway-compose.sh
+# hands to the gateway.
+resolve_gateway_keys() {
   local root="$1"
-  EMBEDDING_PROVIDER_API_KEY="$(sed -n 's/^EMBEDDINGS_PROVIDER_API_KEY=//p' \
-    "$root/secrets/api-keys.env" 2>/dev/null | tail -1)"
+  secret() { sed -n "s/^$1=//p" "$root/secrets/api-keys.env" 2>/dev/null | tail -1; }
+  EMBEDDING_PROVIDER_API_KEY="${EMBEDDINGS_PROVIDER_API_KEY:-$(secret EMBEDDINGS_PROVIDER_API_KEY)}"
+  CLASSIFIER_API_KEY="${CLASSIFIER_API_KEY:-$(secret CLASSIFIER_API_KEY)}"
+  CLASSIFIER_API_KEY="${CLASSIFIER_API_KEY:-$(secret MISTRAL_API_KEY)}"
 }
 
 # When secrets/registry.env has USE_EXTERNAL_REGISTRY=true, exports the newest
