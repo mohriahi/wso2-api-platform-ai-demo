@@ -167,6 +167,8 @@ cp secrets/content-safety.env.example secrets/content-safety.env
 ./scripts/reset-and-setup.sh
 ```
 
+Where to get each key: [Secrets](.docs/configuration.md#secrets).
+
 The setup creates the rest from the examples: `demo.env` and the two
 `api-platform.env` files, which need no editing for a local run. It also
 registers the gateway with AI Workspace.
@@ -248,6 +250,9 @@ run on default ports. It holds:
   Gemini's (see `demo.env.example`).
 - `CLASSIFIER_*`: the model that picks the rule in Intelligent routing,
   Mistral's, Anthropic's or Gemini's (see `demo.env.example`).
+
+Each setting, and each secret with where to get it, is described in
+[Configuration](.docs/configuration.md).
 
 When `demo.env.example` gains a setting, the scripts tell you which ones your
 `demo.env` lacks.
