@@ -119,10 +119,9 @@ service.
   [Mistral](https://console.mistral.ai/api-keys) or
   [Gemini](https://aistudio.google.com/apikey) (each link opens the page where
   you create one)
-- A key for the embeddings model of the semantic cards (caching, routing,
-  prompt and topic guards), `EMBEDDINGS_PROVIDER_API_KEY`: Mistral's by
-  default, it can be the same key as for Mistral chat. Another provider is set
-  in `demo.env`.
+- A **Mistral** key for the semantic cards (caching, routing, prompt and
+  topic guards) and Intelligent routing, whose models are Mistral's by
+  default. Other providers can be set in `demo.env`.
 
 This demo has been tested with paid **Anthropic** credit and a free
 **Mistral** API key, the combination we recommend. **Gemini**'s free tier
@@ -245,12 +244,10 @@ run on default ports. It holds:
   Takes effect on the next page load, with no restart.
 - `RATE_LIMIT_ALGORITHM`: how budgets and rate limits count, `gcra` or
   `fixed-window` (see `demo.env.example`).
-- `EMBEDDING_PROVIDER`, `EMBEDDING_ENDPOINT`, `EMBEDDING_MODEL`,
-  `EMBEDDING_DIMENSION`: the embeddings model of the semantic cards, Mistral's
-  by default (see `demo.env.example`).
-- `CLASSIFIER_PROVIDER`, `CLASSIFIER_ENDPOINT`, `CLASSIFIER_MODEL`: the LLM that
-  picks the rule in Intelligent routing, Mistral's by default (see
-  `demo.env.example`).
+- `EMBEDDING_*`: the embeddings model of the semantic cards, Mistral's or
+  Gemini's (see `demo.env.example`).
+- `CLASSIFIER_*`: the model that picks the rule in Intelligent routing,
+  Mistral's, Anthropic's or Gemini's (see `demo.env.example`).
 
 When `demo.env.example` gains a setting, the scripts tell you which ones your
 `demo.env` lacks.

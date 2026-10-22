@@ -14,8 +14,10 @@
 # validation and the container won't start.
 # The embeddings model of the semantic cards (caching, prompt and topic
 # guards), from the EMBEDDING_* settings in demo.env; Mistral's mistral-embed
-# when they are unset. Its key is EMBEDDINGS_PROVIDER_API_KEY in
-# secrets/api-keys.env. The vector database below stores its vectors.
+# when they are unset. EMBEDDING_PROVIDER is MISTRAL, OPENAI (any
+# OpenAI-compatible API) or AZURE_OPENAI. Its key is
+# EMBEDDINGS_PROVIDER_API_KEY in secrets/api-keys.env, MISTRAL_API_KEY when
+# blank. The vector database below stores its vectors.
 embedding_provider = '{{ env "EMBEDDING_PROVIDER" "MISTRAL" }}'
 embedding_provider_endpoint = '{{ env "EMBEDDING_ENDPOINT" "https://api.mistral.ai/v1/embeddings" }}'
 embedding_provider_model = '{{ env "EMBEDDING_MODEL" "mistral-embed" }}'
@@ -179,7 +181,9 @@ embedding_provider_api_key  = '{{ env "APIP_GW_EMBEDDING_PROVIDER_API_KEY" "" }}
 
 # Intelligent routing's classifier: an LLM that reads each question and picks
 # a routing rule, from the CLASSIFIER_* settings in demo.env; Mistral's
-# ministral-14b-latest when they are unset. Its key is CLASSIFIER_API_KEY in
+# ministral-14b-latest when they are unset. CLASSIFIER_PROVIDER is OPENAI for
+# any OpenAI-compatible chat API (Mistral's, Anthropic's and Gemini's
+# included), AZURE_OPENAI for Azure OpenAI. Its key is CLASSIFIER_API_KEY in
 # secrets/api-keys.env, MISTRAL_API_KEY when that is blank.
 [policy_configurations.intelligent_model_routing_v1]
 llm_provider          = '{{ env "CLASSIFIER_PROVIDER" "OPENAI" }}'

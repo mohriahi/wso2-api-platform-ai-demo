@@ -96,14 +96,15 @@ resolve_analytics() {
 
 # The gateway's own keys, from secrets/api-keys.env: the embeddings
 # provider's (EMBEDDINGS_PROVIDER_API_KEY, for the semantic cards) and
-# Intelligent routing's classifier's (CLASSIFIER_API_KEY, MISTRAL_API_KEY when
-# blank). A key already in the environment wins. Sets
+# Intelligent routing's classifier's (CLASSIFIER_API_KEY), each
+# MISTRAL_API_KEY when blank. A key already in the environment wins. Sets
 # $EMBEDDING_PROVIDER_API_KEY and $CLASSIFIER_API_KEY, which gateway-compose.sh
 # hands to the gateway.
 resolve_gateway_keys() {
   local root="$1"
   secret() { sed -n "s/^$1=//p" "$root/secrets/api-keys.env" 2>/dev/null | tail -1; }
   EMBEDDING_PROVIDER_API_KEY="${EMBEDDINGS_PROVIDER_API_KEY:-$(secret EMBEDDINGS_PROVIDER_API_KEY)}"
+  EMBEDDING_PROVIDER_API_KEY="${EMBEDDING_PROVIDER_API_KEY:-$(secret MISTRAL_API_KEY)}"
   CLASSIFIER_API_KEY="${CLASSIFIER_API_KEY:-$(secret CLASSIFIER_API_KEY)}"
   CLASSIFIER_API_KEY="${CLASSIFIER_API_KEY:-$(secret MISTRAL_API_KEY)}"
 }
