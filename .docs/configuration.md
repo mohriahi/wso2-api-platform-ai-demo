@@ -16,9 +16,9 @@ After any change, restart the demo with `./scripts/run-local.sh`. When a
 change adds cards (a new key, for example), also run
 `./scripts/python/provision_showcases.py`, which sets them up.
 
-## Keys and accounts
+## 🔑 Keys and accounts
 
-### Step 1, required: an LLM provider key
+### 1. REQUIRED - LLM Providers Key
 
 File: `secrets/api-keys.env`
 
@@ -45,7 +45,7 @@ Leave `EMBEDDINGS_PROVIDER_API_KEY` and `CLASSIFIER_API_KEY` blank: they are
 only needed if you change those Mistral models to another provider (see
 [The models the gateway uses itself](#the-models-the-gateway-uses-itself)).
 
-### Step 2, optional: analytics in Moesif
+### 2. (Optional) Analytics (Moesif)
 
 What for: see every call through the gateway, its cost and its tokens, in
 [Moesif](https://www.moesif.com/)'s dashboards.
@@ -58,7 +58,7 @@ What for: see every call through the gateway, its cost and its tokens, in
 Without it, the demo runs without analytics. To use tools on your own machine
 instead of Moesif, see [Analytics](#analytics).
 
-### Step 3, optional: the third-party cards
+### 3. (Optional) Third-party cards (Azure, AWS, Jev)
 
 What for: the cards whose check is done by an outside service. Each service
 is independent: fill in only the ones you have. Until a service is set, its
@@ -97,7 +97,7 @@ trying to do):
 1. Create a key on [TypeSafe AI's console](https://console.typesafe.ai/keys).
 2. Paste it into `TYPESAFE_API_KEY`.
 
-### Step 4, optional: sign-in for the MCP cards
+### 4. (Optional) Authentication for MCP (IDP)
 
 What for: the MCP Authentication and Authorization cards, where the user signs
 in before the agent may use its tools. They need an identity provider, such as
@@ -106,7 +106,7 @@ Asgardeo or WSO2 Identity Server.
 File: `secrets/idp.env`. The full steps, from creating the application to
 filling in the file, are in [Identity provider setup](mcp-identity-provider.md).
 
-### Step 5, optional: images from a remote registry
+### 5. (Optional) Remote registry
 
 What for: run the products' images from a private or remote Docker registry,
 for example one with newer updates, instead of the public images.
@@ -148,7 +148,7 @@ ADMIN_PASSWORD='your-password' ./scripts/python/provision_showcases.py
 - `ai-workspace/api-platform.env` and `ai-gateway/api-platform.env`: the setup
   creates them and fills them in.
 
-## The demo's options
+## ⚙️ The demo's options
 
 All in `demo.env`. The defaults work: change a value only for the cases below.
 
@@ -164,11 +164,14 @@ GATEWAY_PORT_OFFSET=1
 Every gateway port then moves up by one (8443 becomes 8444), like the port
 offset of WSO2 products. The chatbot follows by itself.
 
+Before the first run, `demo.env` does not exist yet: create it first with
+`cp demo.env.example demo.env`.
+
 ### Analytics
 
 `ANALYTICS_MODE` chooses where the gateway's analytics go:
 
-- `moesif` (the default): to Moesif, once its Application ID is set (Step 2).
+- `moesif` (the default): to Moesif, once its Application ID is set (see 2.).
 - `local`: to tools started on your machine, linked in the chatbot's top
   menu: Grafana (dashboards), Jaeger (the path of each request), OpenSearch
   Dashboards (the gateway's logs) and Prometheus (raw metrics).
@@ -252,7 +255,7 @@ To put the cards on an existing deployment instead of your machine:
    `--skip-existing` to only create what is missing.
 
 The chatbot then uses that gateway. The scripts never register, rename or
-restart it. The cards that need keys from Step 3 or 4 also need those
+restart it. The cards that need keys from 3. or 4. also need those
 settings on that gateway.
 
 Optional, in `demo.env`: `REMOTE_ADMIN_USERNAME` if the admin is not `admin`,

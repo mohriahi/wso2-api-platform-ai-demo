@@ -111,39 +111,16 @@ service.
 
 ## Prerequisites
 
-- **Docker**, with Compose v2 (`docker compose version`)
-- **Python 3**
-- **openssl**, **curl**, **unzip**, **htpasswd**
-- An API key from at least one LLM provider:
-  [Anthropic](https://platform.claude.com/settings/keys),
-  [Mistral](https://console.mistral.ai/api-keys) or
-  [Gemini](https://aistudio.google.com/apikey) (each link opens the page where
-  you create one)
-- A **Mistral** key for the semantic cards (caching, routing, prompt and
-  topic guards) and Intelligent routing, whose models are Mistral's by
-  default. Other providers can be set in `demo.env`.
+- **Docker**, with Compose v2
+- **Python 3**, **openssl**, **curl**, **unzip** and **htpasswd**
+- **API keys**: we recommend [Anthropic](https://platform.claude.com/settings/keys)
+  (with credit) and [Mistral](https://console.mistral.ai/api-keys) (a free
+  key is enough). [Gemini](https://aistudio.google.com/apikey) works too, with
+  billing on: its free tier is too small for a demo.
 
-This demo has been tested with paid **Anthropic** credit and a free
-**Mistral** API key, the combination we recommend. **Gemini**'s free tier
-is too small for a demo: no pro model, and about 20 requests per model per
-day, which a few cards use up. Use a Gemini key with billing.
-
-Intelligent routing spans two providers: it needs both an **Anthropic** and
-a **Mistral** key, and is skipped when either is disabled in
-`providers.json`.
-
-Optional, for the cards that rely on an outside service. Until it is set up,
-the card is skipped and the chatbot says what to set:
-
-- **Content safety (Azure), tested**: an [Azure AI Content Safety resource](https://aka.ms/acs-create),
-  its endpoint and key, in `secrets/content-safety.env`
-- **Content safety (AWS Bedrock), not tested yet**: a [Bedrock guardrail](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-components.html)
-  and a [Bedrock API key](https://docs.aws.amazon.com/bedrock/latest/userguide/api-keys.html), in `secrets/content-safety.env`
-- **The five Jev cards**: a [TypeSafe AI](https://typesafe.ai) API key, created
-  on its [console](https://console.typesafe.ai/keys), in `secrets/content-safety.env`
-- **MCP Authentication and Authorization**: an OpenID Connect identity provider,
-  for example [Asgardeo](https://asgardeo.io/signup), in `secrets/idp.env`
-  (see the [IDP Setup](.docs/mcp-identity-provider.md))
+Optional: the third-party cards (Azure, AWS Bedrock, Jev) and sign-in for the
+MCP cards need an account with that service. Until it is set up, the card is
+skipped. See [Configuring the demo](.docs/configuration.md).
 
 ## Installation
 
@@ -170,21 +147,13 @@ cp secrets/registry.env.example secrets/registry.env
 ./scripts/reset-and-setup.sh
 ```
 
-Where to get each key: [Keys and accounts](.docs/configuration.md#keys-and-accounts).
+Where to get each key: [Keys and accounts](.docs/configuration.md#-keys-and-accounts).
 
-The setup creates the rest from the examples: `demo.env` and the two
-`api-platform.env` files, which need no editing for a local run. It also
-registers the gateway with AI Workspace.
+The first run takes a few minutes. It asks you to choose a password for AI
+Workspace's `admin` user, and ends with the chatbot's address.
 
-It asks you to choose a password for AI Workspace's `admin` user, and uses it
-for the whole setup. Later, the scripts log in as `admin`/`admin` unless you
-set `ADMIN_PASSWORD`.
-
-If another program already uses the gateway's ports (8080, 8443...), create
-`demo.env` first (`cp demo.env.example demo.env`) and set
-`GATEWAY_PORT_OFFSET=1` in it.
-
-First run takes a few minutes and ends with the chatbot's address.
+If another program already uses the gateway's ports (8080, 8443...), see
+[the gateway's ports are already in use](.docs/configuration.md#the-gateways-ports-are-already-in-use).
 
 ### After that
 
@@ -222,7 +191,7 @@ One MCP proxy per showcase:
 One Application per provider (for analytics purposes):
 ![Apps](.docs/preview-ai-workspace-apps.png)
 
-With Moesif analytics on (see [Configuring the demo](.docs/configuration.md#step-2-optional-analytics-in-moesif)), you can also consult
+With Moesif analytics on (see [Configuring the demo](.docs/configuration.md#2-optional-analytics-moesif)), you can also consult
 the Analytics view:
 ![Analytics](.docs/preview-ai-analytics.png)
 
@@ -240,7 +209,7 @@ it, so what you change there stays on your machine.
 
 By default, the demo runs the public images. To run them from a private or
 remote Docker registry instead, fill in `secrets/registry.env`: see
-[Step 5](.docs/configuration.md#step-5-optional-images-from-a-remote-registry).
+[Remote registry](.docs/configuration.md#5-optional-remote-registry).
 
 ## Troubleshooting
 
