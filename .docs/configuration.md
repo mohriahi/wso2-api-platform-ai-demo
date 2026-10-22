@@ -106,10 +106,10 @@ Asgardeo or WSO2 Identity Server.
 File: `secrets/idp.env`. The full steps, from creating the application to
 filling in the file, are in [Identity provider setup](mcp-identity-provider.md).
 
-### Step 5, optional: WSO2's latest product updates
+### Step 5, optional: images from a remote registry
 
-What for: run the newest updates of the WSO2 products from WSO2's registry,
-instead of the public images. This needs a WSO2 subscription.
+What for: run the products' images from a private or remote Docker registry,
+for example one with newer updates, instead of the public images.
 
 File: `secrets/registry.env`
 
@@ -118,12 +118,18 @@ cp secrets/registry.env.example secrets/registry.env
 ```
 
 1. Set `USE_EXTERNAL_REGISTRY=true`.
-2. Fill in your registry username and token (`EXTERNAL_REGISTRY_USERNAME`,
-   `EXTERNAL_REGISTRY_TOKEN`).
-3. Run `./scripts/reset-and-setup.sh`. It starts the demo again from an empty
+2. In `EXTERNAL_REGISTRY_URL`, write the registry's address and the path to
+   the images, without `https://`: for example
+   `registry.example.com/api-platform`.
+3. Fill in your account on that registry: `EXTERNAL_REGISTRY_USERNAME`, and
+   its token or password in `EXTERNAL_REGISTRY_TOKEN`.
+4. Run `./scripts/reset-and-setup.sh`. It starts the demo again from an empty
    state, on those images.
 
-Any other registry works the same way: change `EXTERNAL_REGISTRY_URL`.
+For each product, the demo runs the newest update the registry has of the
+version set in `demo.env`: for `1.0.0`, the newest `1.0.0.N`. To go back to
+the public images, set `USE_EXTERNAL_REGISTRY=false` and run
+`./scripts/reset-and-setup.sh` again.
 
 ### Passwords
 

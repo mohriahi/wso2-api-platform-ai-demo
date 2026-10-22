@@ -236,22 +236,11 @@ runs elsewhere. See [Configuring the demo](.docs/configuration.md).
 The demo's options live in `demo.env`, created on the first run. Git ignores
 it, so what you change there stays on your machine.
 
-### Product images from an external registry
+### Product images from a remote registry
 
-By default, the demo runs the public images. To run the newest updates from an
-external registry instead, any registry, for example WSO2's
-(`registry.wso2.com`):
-
-```bash
-cp secrets/registry.env.example secrets/registry.env
-# in secrets/registry.env: USE_EXTERNAL_REGISTRY=true, your username and token
-./scripts/reset-and-setup.sh
-```
-
-For each product, the scripts then look up the newest update of the version in
-`demo.env` (for `0.16.0`, the newest `0.16.0.N`) and run it. The gateway is
-rebuilt on those images. Docker downloads them by itself. To go back to the
-public images, set `USE_EXTERNAL_REGISTRY=false`.
+By default, the demo runs the public images. To run them from a private or
+remote Docker registry instead, fill in `secrets/registry.env`: see
+[Step 5](.docs/configuration.md#step-5-optional-images-from-a-remote-registry).
 
 ## Troubleshooting
 
