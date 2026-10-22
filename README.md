@@ -164,10 +164,13 @@ cp secrets/idp.env.example secrets/idp.env
 cp secrets/content-safety.env.example secrets/content-safety.env
 # (Optional) edit secrets/content-safety.env: Azure Content Safety, AWS Bedrock Guardrails and TypeSafe AI's Jev, for the third-party cards
 
+cp secrets/registry.env.example secrets/registry.env
+# (Optional) edit secrets/registry.env: to configure a remote Docker registry to pull the images
+
 ./scripts/reset-and-setup.sh
 ```
 
-Where to get each key: [Secrets](.docs/configuration.md#secrets).
+Where to get each key: [Keys and accounts](.docs/configuration.md#keys-and-accounts).
 
 The setup creates the rest from the examples: `demo.env` and the two
 `api-platform.env` files, which need no editing for a local run. It also
@@ -219,95 +222,19 @@ One MCP proxy per showcase:
 One Application per provider (for analytics purposes):
 ![Apps](.docs/preview-ai-workspace-apps.png)
 
-With Moesif analytics on (see `ANALYTICS_MODE` below), you can also consult
+With Moesif analytics on (see [Configuring the demo](.docs/configuration.md#step-2-optional-analytics-in-moesif)), you can also consult
 the Analytics view:
 ![Analytics](.docs/preview-ai-analytics.png)
 
 ## Configuration
 
-Each machine's settings live in `demo.env`, at the repo root. The scripts
-create it from `demo.env.example` on the first run, and git ignores it, so
-what you change there stays on your machine. Nothing needs editing for a first
-run on default ports. It holds:
+Nothing to configure for a first run apart from one API key. Everything else
+is optional: more cards (Azure, AWS, Jev, sign-in for the MCP cards),
+analytics, other models, ports already in use, or an AI Workspace that already
+runs elsewhere. See [Configuring the demo](.docs/configuration.md).
 
-- `DEMO_NAME`: the demo's name, also the prefix of the custom gateway image.
-- `DEMO_HOSTNAME`: the public hostname on a VM. Leave it blank locally.
-- The component versions. The gateway's must match `ai-gateway/build.yaml`.
-- The ports, except the gateway's own, which are in `ai-gateway/.env`.
-- `GATEWAY_PORT_OFFSET`: moves all the gateway's ports up, like the port
-  offset of WSO2 products. With 1, the gateway answers on 8444 instead of
-  8443. The chatbot and the provisioning follow.
-- `ANALYTICS_MODE`: `moesif` (needs your [Moesif](https://www.moesif.com/)
-  application id in `secrets/api-keys.env`, found in Moesif under Settings,
-  API Keys) or `local` (Jaeger, OpenSearch, Prometheus and Grafana on your
-  machine).
-- `DISABLED_CARDS`: card ids, comma-separated, shown greyed out and not 
-  clickable, for a card whose outside service is down during a live demo.
-  Takes effect on the next page load, with no restart.
-- `RATE_LIMIT_ALGORITHM`: how budgets and rate limits count, `gcra` or
-  `fixed-window` (see `demo.env.example`).
-- `EMBEDDING_*`: the embeddings model of the semantic cards, Mistral's or
-  Gemini's (see `demo.env.example`).
-- `CLASSIFIER_*`: the model that picks the rule in Intelligent routing,
-  Mistral's, Anthropic's or Gemini's (see `demo.env.example`).
-
-Each setting, and each secret with where to get it, is described in
-[Configuration](.docs/configuration.md).
-
-When `demo.env.example` gains a setting, the scripts tell you which ones your
-`demo.env` lacks.
-
-`providers.json` lists the LLM providers. Each one has two models you can
-edit there, `small` and `large`: the routing cards move traffic between them,
-and the other cards use one of the two. They must differ, and the spend limit
-and cost-based routing need a model priced in
-`ai-gateway/configs/llm-pricing/model_prices.json`. After a change, run
-`./scripts/run-local.sh` then `./scripts/python/provision_showcases.py`.
-A provider with no key in `secrets/api-keys.env` is skipped. To remove one for
-everyone, set `"enabled": false`. In AI Workspace, the providers are named
-`demo-anthropic`, `demo-mistral` and `demo-gemini` (their `providerId`).
-
-**Updating a copy cloned before `demo.env` left git**: `git pull` would delete
-your `demo.env`, or refuse to run if you changed it. Keep it aside around the
-pull:
-
-```bash
-cp demo.env ~/demo.env.keep && git checkout demo.env
-git pull
-cp ~/demo.env.keep demo.env
-```
-
-### Provisioning onto an existing AI Workspace and gateway
-
-To put the showcases on an AI Workspace and a gateway that already run
-somewhere else:
-
-1. In `demo.env`, set `REMOTE_AI_WORKSPACE_URL`, `REMOTE_GATEWAY_ID` and
-   `REMOTE_GATEWAY_URL` (examples in `demo.env.example`).
-2. Export the admin password: `export REMOTE_ADMIN_PASSWORD=...`. Never write
-   it in a file.
-3. Check first: `./scripts/python/provision_showcases.py --check`. It changes
-   nothing and lists what it would create or overwrite.
-4. Provision: `./scripts/python/provision_showcases.py`. Add `--skip-existing`
-   to create only what is missing.
-
-The chatbot then uses that gateway too. The scripts never register, rename or
-restart it.
-
-Optional settings in `demo.env`:
-
-- `REMOTE_ADMIN_USERNAME`: if the admin user is not `admin`.
-- `REMOTE_PROJECT_ID`: a project of its own for the demo.
-- `REMOTE_GATEWAY_CONTROLLER_URL`: the gateway's management API. Deployments
-  are then checked there, without test requests that would show in analytics.
-- `REMOTE_MCP_GATEWAY_ID` and `REMOTE_MCP_GATEWAY_URL`: another gateway for
-  the MCP cards. This also works with this machine's stack.
-
-The cards that need an identity provider or a content safety service are only
-provisioned when it is set in `secrets/`. The remote gateway needs the same
-settings in its own configuration.
-
-A `demo.env` written with the earlier names still works: `AIW_URL`, `GATEWAY_ID`, `GATEWAY_BASE` (or `GATEWAY_ENDPOINT`), `ADMIN_USERNAME`, `DEMO_PROJECT_ID`, `MCP_GATEWAY_ID`, `MCP_GATEWAY_BASE` (or `MCP_GATEWAY_ENDPOINT`), and `ADMIN_PASSWORD` in the environment. They are read only when `AIW_URL` is set and no `REMOTE_AI_WORKSPACE_URL` is.
+The demo's options live in `demo.env`, created on the first run. Git ignores
+it, so what you change there stays on your machine.
 
 ### Product images from an external registry
 

@@ -1,217 +1,269 @@
-# Configuration: demo.env and secrets
+# Configuring the demo
 
-The demo reads its settings from two places:
+**Nothing to configure for a first run, apart from one API key.** Everything
+else on this page is optional: use it to turn on more cards, or to adapt the
+demo to your machine.
 
-- **`demo.env`**, at the repo root: this machine's settings (name, versions,
-  ports, analytics, and how some cards behave). It holds no secrets. The
-  scripts create it from `demo.env.example` on the first run, and git ignores
-  it, so your changes stay on your machine.
-- **`secrets/`**: keys and credentials. Only the templates (`*.example`) are
-  in git.
+There are two places:
 
-After a change, `./scripts/run-local.sh` applies most settings. Each section
-says when another step is needed.
+- **Your keys** go in the `secrets/` folder. Each file there has a template
+  ending in `.example`: copy it without `.example`, then fill it in. Your
+  copies stay on your machine and never reach git.
+- **The demo's options** go in `demo.env`, at the root of the repo. The setup
+  creates it for you on the first run, with values that work as they are.
 
-## demo.env
+After any change, restart the demo with `./scripts/run-local.sh`. When a
+change adds cards (a new key, for example), also run
+`./scripts/python/provision_showcases.py`, which sets them up.
 
-Write comments on their own line: text after a value, on the same line,
-becomes part of the value. When `demo.env.example` gains a setting, the
-scripts tell you which ones your `demo.env` lacks.
+## Keys and accounts
 
-### Name and hostname
+### Step 1, required: an LLM provider key
 
-| Setting | Default | What it does |
-|---|---|---|
-| `DEMO_NAME` | `ai-demo` | The demo's name, in lowercase letters and hyphens. It names the custom gateway image and the Docker network of the MCP servers. |
-| `DEMO_HOSTNAME` | blank | The server's public hostname, when the demo runs on a VM. The consoles, the launcher's links and the gateway's answers to MCP clients use it. Blank locally: `localhost` is used. |
-
-Set `DEMO_NAME` before the first run. Changing it later means building the
-gateway image again with `./scripts/reset-and-setup.sh`, which starts from an
-empty state.
-
-### Versions
-
-| Setting | Default | What it does |
-|---|---|---|
-| `PLATFORM_API_VERSION` | `0.16.0` | The Platform API, AI Workspace's backend. |
-| `AI_WORKSPACE_VERSION` | `1.0.0` | AI Workspace, the control plane console. |
-| `API_PORTAL_VERSION` | `1.0.0` | The API Portal. It runs, but no card uses it. |
-| `AI_GATEWAY_VERSION` | `1.2.0` | The AI Gateway. It must equal `gateway.version` in `ai-gateway/build.yaml`. |
-
-The gateway runs a custom image, with the demo's own policies built in. To
-change its version, change both values, then run
-`./scripts/reset-and-setup.sh`: it builds the image again, from an empty
-state.
-
-With an external registry (`secrets/registry.env`, below), the scripts run the
-newest update of each version: for `0.16.0`, the newest `0.16.0.N`.
-
-### Ports
-
-| Setting | Default | What it does |
-|---|---|---|
-| `AI_CHATBOT_PORT` | `8600` | The chatbot, at http://localhost:8600. If you change it, change the redirect URL in your identity provider too (`http://localhost:<port>/oauth/callback`). |
-| `PLATFORM_API_PORT` | `9243` | The Platform API, which the gateway connects to. |
-| `AI_WORKSPACE_PORT` | `9643` | AI Workspace, at https://localhost:9643. |
-| `API_PORTAL_PORT` | `9543` | The API Portal, at https://localhost:9543/api-portal/. |
-| `GATEWAY_PORT_OFFSET` | `0` | Moves all the gateway's ports up by this number, like the port offset of WSO2 products. With `1`, 8443 becomes 8444 and 8080 becomes 8081. For a machine where another program already uses them. The chatbot and the provisioning follow. |
-
-The gateway's own ports are in `ai-gateway/.env`: 8443 (HTTPS), 8080 (HTTP),
-9090 (management API) and a few internal ones. Move them with
-`GATEWAY_PORT_OFFSET` rather than in that file.
-
-### Analytics
-
-| Setting | Default | What it does |
-|---|---|---|
-| `ANALYTICS_MODE` | `moesif` | Where the gateway's analytics go. `moesif`: to [Moesif](https://www.moesif.com/), with the Application ID set in `secrets/api-keys.env`; without it, analytics stay off and the scripts say so. `local`: to tools started on this machine and linked in the chatbot's launcher menu: Grafana (port 3000), Jaeger (16686), OpenSearch Dashboards (5601) and Prometheus (9092). |
-
-### How some cards behave
-
-| Setting | Default | What it does |
-|---|---|---|
-| `PEAK_HOURS` | `13:30-18:00` | The peak hours of the Time-based routing card, as `HH:MM-HH:MM`. During them, even complex questions go to the fast model. |
-| `PEAK_TIMEZONE` | `Europe/Paris` | The time zone of `PEAK_HOURS`, as a name from the IANA list: `Europe/London`, `America/New_York`... |
-| `RATE_LIMIT_ALGORITHM` | `gcra` | How budgets and rate limits count, for the spend limit, cost-based routing, token quota and MCP rate limit cards. `gcra`: capacity comes back gradually; the cards are tuned for it. `fixed-window`: the count resets at fixed times of the clock, the gateway's default when the setting is absent. |
-| `DISABLED_CARDS` | blank | Card ids, comma-separated, shown greyed out and not clickable: for a card whose outside service is down during a live demo. The ids are in `ai-chatbot/showcases.json`, for example `content-safety-bedrock`. Takes effect on the next page load, with no restart. |
-
-`PEAK_HOURS` and `PEAK_TIMEZONE` are written into the card's policy: after a
-change, run `./scripts/python/provision_showcases.py`.
-
-For `RATE_LIMIT_ALGORITHM` in production, weigh the choice against performance
-and memory use. With several gateways, use a shared Redis backend (in
-`ai-gateway/configs/config.toml`), with the same value on every gateway.
-
-### Models the gateway calls itself
-
-Two features call a model of their own, apart from the cards' providers.
-`demo.env.example` has one ready block per provider: keep one uncommented. The
-block the demo uses comes last.
-
-| Setting | Default | What it does |
-|---|---|---|
-| `EMBEDDING_PROVIDER`, `EMBEDDING_ENDPOINT`, `EMBEDDING_MODEL`, `EMBEDDING_DIMENSION` | Mistral's `mistral-embed`, 1024 | The embeddings model of the semantic cards (Semantic caching, Semantic routing, Prompt injection and Topic guardrails). It turns each question into numbers, so the gateway can compare meanings. Blocks for Mistral and Gemini (paid key only: the free quota refuses the gateway's calls at startup); Anthropic has no embeddings model. `EMBEDDING_DIMENSION` is the size of the model's vectors. The cards' similarity thresholds are tuned for Mistral's model. |
-| `CLASSIFIER_PROVIDER`, `CLASSIFIER_ENDPOINT`, `CLASSIFIER_MODEL` | Mistral's `ministral-14b-latest` | The model that reads each question and picks the rule in Intelligent routing. Blocks for Mistral, Anthropic and Gemini. `CLASSIFIER_PROVIDER` is `OPENAI` for any OpenAI-compatible API (all three), `AZURE_OPENAI` for Azure OpenAI. When this model fails (wrong key, no quota left), every question takes the backup route. |
-
-For a provider other than Mistral, put its key in `secrets/api-keys.env`:
-`EMBEDDINGS_PROVIDER_API_KEY` or `CLASSIFIER_API_KEY`.
-
-### An AI Workspace and a gateway that already run elsewhere
-
-To put the showcases on an existing deployment instead of this machine's
-stack. The steps are in the
-[README](../README.md#provisioning-onto-an-existing-ai-workspace-and-gateway).
-
-| Setting | Default | What it does |
-|---|---|---|
-| `REMOTE_AI_WORKSPACE_URL` | blank | AI Workspace's address, for example `https://workspace.example.com:9643`. When set, the provisioning and the chatbot use that deployment. |
-| `REMOTE_GATEWAY_ID` | blank | The gateway's id in that AI Workspace. |
-| `REMOTE_GATEWAY_URL` | blank | The gateway's address, for example `https://gateway.example.com:8443`. |
-| `REMOTE_ADMIN_USERNAME` | `admin` | The admin user of that AI Workspace. Its password goes in the environment (see below). |
-| `REMOTE_PROJECT_ID` | `default` | The AI Workspace project the showcases go in. |
-| `REMOTE_GATEWAY_CONTROLLER_URL` | blank | Optional: the gateway's management API, for example `http://gateway.example.com:9090`. Deployments are then checked there, without test requests that would show in analytics. |
-| `REMOTE_MCP_GATEWAY_ID`, `REMOTE_MCP_GATEWAY_URL`, `REMOTE_MCP_GATEWAY_CONTROLLER_URL` | blank | Another gateway for the MCP cards, already registered in AI Workspace. Works with this machine's stack too. |
-
-A `demo.env` written with the earlier names (`AIW_URL`, `GATEWAY_ID`...)
-still works: the README lists them.
-
-## Secrets
-
-Each file in `secrets/` comes with a template, `<file>.example`. Copy it
-without `.example`, then fill it in. Git ignores the copies, so your keys never
-reach the repository. Only `api-keys.env` is required.
-
-After a change, run `./scripts/run-local.sh`, then
-`./scripts/python/provision_showcases.py`: a card whose key or service was
-missing stays skipped until then.
-
-### secrets/api-keys.env (required)
+File: `secrets/api-keys.env`
 
 ```bash
 cp secrets/api-keys.env.example secrets/api-keys.env
 ```
 
-| Key | What it is for | How to get it |
+Paste in at least one key. Each provider you add a key for gets its own
+version of every card; a provider left blank is simply skipped.
+
+| Provider | Line to fill in | Where to get the key |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | Claude models | In the [Claude Console](https://platform.claude.com/settings/keys), create a key. The account needs credit. |
-| `MISTRAL_API_KEY` | Mistral models, and by default the embeddings and Intelligent routing's classifier | In the [Mistral console](https://console.mistral.ai/api-keys), create a key. A free plan is enough. |
-| `GEMINI_API_KEY` | Gemini models | In [Google AI Studio](https://aistudio.google.com/apikey), create a key. The free tier allows about 20 requests per model per day, which a few cards use up: turn billing on for the key's project. |
-| `EMBEDDINGS_PROVIDER_API_KEY` | The embeddings model chosen in `demo.env` | Blank for Mistral: `MISTRAL_API_KEY` is used. For Gemini, your Gemini key. |
-| `CLASSIFIER_API_KEY` | Intelligent routing's classifier chosen in `demo.env` | Blank for Mistral: `MISTRAL_API_KEY` is used. For Anthropic or Gemini, that provider's key. |
-| `APIP_GW_ANALYTICS_PUBLISHERS_MOESIF_APPLICATION_ID` | Analytics, with `ANALYTICS_MODE=moesif` | Create a [Moesif](https://www.moesif.com/) account, then in Moesif: *Settings*, *API Keys*, the Application ID. Blank: analytics stay off. |
+| Anthropic (Claude) | `ANTHROPIC_API_KEY` | [Claude Console](https://platform.claude.com/settings/keys). The account needs credit. |
+| Mistral | `MISTRAL_API_KEY` | [Mistral console](https://console.mistral.ai/api-keys). A free plan is enough. |
+| Gemini | `GEMINI_API_KEY` | [Google AI Studio](https://aistudio.google.com/apikey). Turn billing on: the free tier allows only about 20 requests per model per day. |
 
-You need at least one provider key. The demo is tested with Anthropic (paid
-credit) and Mistral (a free key), the combination we recommend; Intelligent
-routing needs both. A provider without a key is skipped. To leave one out for
-everyone, set `"enabled": false` on it in `providers.json`.
+We recommend **Anthropic and Mistral together**: it is the combination the
+demo is tested with. Mistral matters even if you mostly show another
+provider: the gateway uses a Mistral model of its own to understand the
+meaning of questions (Semantic caching, the meaning-based guards, Semantic
+and Intelligent routing). Intelligent routing also needs the Anthropic key.
 
-### secrets/content-safety.env (optional)
+Leave `EMBEDDINGS_PROVIDER_API_KEY` and `CLASSIFIER_API_KEY` blank: they are
+only needed if you change those Mistral models to another provider (see
+[The models the gateway uses itself](#the-models-the-gateway-uses-itself)).
 
-For the cards whose policy calls an outside service. When a service is left
-blank, its cards are skipped and the chatbot says what to set.
+### Step 2, optional: analytics in Moesif
+
+What for: see every call through the gateway, its cost and its tokens, in
+[Moesif](https://www.moesif.com/)'s dashboards.
+
+1. Create a Moesif account.
+2. In Moesif, open *Settings*, then *API Keys*, and copy the Application ID.
+3. Paste it in `secrets/api-keys.env`, on the
+   `APIP_GW_ANALYTICS_PUBLISHERS_MOESIF_APPLICATION_ID` line.
+
+Without it, the demo runs without analytics. To use tools on your own machine
+instead of Moesif, see [Analytics](#analytics).
+
+### Step 3, optional: the third-party cards
+
+What for: the cards whose check is done by an outside service. Each service
+is independent: fill in only the ones you have. Until a service is set, its
+cards are skipped and the chatbot says what is missing.
+
+File: `secrets/content-safety.env`
 
 ```bash
 cp secrets/content-safety.env.example secrets/content-safety.env
 ```
 
-| Key | Card | How to get it |
-|---|---|---|
-| `AZURE_CONTENT_SAFETY_ENDPOINT`, `AZURE_CONTENT_SAFETY_KEY` | Content safety (Azure) | Create an [Azure AI Content Safety resource](https://aka.ms/acs-create). In the Azure portal, open it, then *Keys and Endpoint*: the endpoint, and either key. |
-| `AWS_BEDROCK_REGION`, `AWS_BEDROCK_GUARDRAIL_ID`, `AWS_BEDROCK_GUARDRAIL_VERSION` | Content safety (AWS Bedrock), not tested yet | Create a [guardrail](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-components.html) in the Amazon Bedrock console. Its region (for example `eu-west-1`), its ID, shown on its page, and its version: `DRAFT` for the working draft, or a published version's number. |
-| `AWS_BEARER_TOKEN_BEDROCK` | Content safety (AWS Bedrock) | A [Bedrock API key](https://docs.aws.amazon.com/bedrock/latest/userguide/api-keys.html), created in the Bedrock console. Or, instead, an IAM user's access key pair in `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, allowed to apply the guardrail (`bedrock:ApplyGuardrail`). |
-| `TYPESAFE_API_KEY` | The five Jev cards | Create a key on [TypeSafe AI's console](https://console.typesafe.ai/keys). |
+**Content safety (Azure)**, which refuses violent or hateful messages:
 
-### secrets/idp.env (optional)
+1. Create an [Azure AI Content Safety resource](https://aka.ms/acs-create).
+2. In the Azure portal, open it, then *Keys and Endpoint*.
+3. Copy the endpoint into `AZURE_CONTENT_SAFETY_ENDPOINT`, and one of the two
+   keys into `AZURE_CONTENT_SAFETY_KEY`.
 
-For the MCP Authentication and Authorization cards: an OpenID Connect identity
-provider (Asgardeo, WSO2 Identity Server or any other). How to set it up:
-[IDP Setup](mcp-identity-provider.md).
+**Content safety (AWS Bedrock)**, the same with an AWS guardrail (this card
+has not been tested yet):
 
-| Key | What it is |
-|---|---|
-| `IDP_ISSUER` | The issuer the provider writes in its tokens. |
-| `IDP_JWKS_URI` | Where the gateway fetches the provider's signing keys. For a provider on this machine, write `host.docker.internal` instead of `localhost`. |
-| `IDP_CLIENT_ID` | The client ID of the application the demo signs users in with. |
-| `IDP_CONSOLE_URL` | Optional: the provider's console, listed in the chatbot's launcher menu. |
+1. In the Amazon Bedrock console, create a
+   [guardrail](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-components.html).
+2. Fill in its region (`AWS_BEDROCK_REGION`, for example `eu-west-1`), its ID,
+   shown on its page (`AWS_BEDROCK_GUARDRAIL_ID`), and its version
+   (`AWS_BEDROCK_GUARDRAIL_VERSION`: keep `DRAFT`, or the number of a
+   published version).
+3. Create a [Bedrock API key](https://docs.aws.amazon.com/bedrock/latest/userguide/api-keys.html)
+   and paste it into `AWS_BEARER_TOKEN_BEDROCK`. Instead, you can use an IAM
+   user's access key pair (`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`),
+   allowed to apply the guardrail.
 
-Both URLs are in the provider's `<issuer>/.well-known/openid-configuration`.
+**The five Jev cards** (TypeSafe AI's Jev, which judges what a message is
+trying to do):
 
-### secrets/registry.env (optional)
+1. Create a key on [TypeSafe AI's console](https://console.typesafe.ai/keys).
+2. Paste it into `TYPESAFE_API_KEY`.
 
-To run the newest product updates from an external registry instead of the
-public images.
+### Step 4, optional: sign-in for the MCP cards
 
-| Key | What it is |
-|---|---|
-| `USE_EXTERNAL_REGISTRY` | `true` to use the registry below, `false` for the public images. |
-| `EXTERNAL_REGISTRY_URL` | The registry and the path to the images, without `https://`. WSO2's: `registry.wso2.com/wso2-api-platform`. |
-| `EXTERNAL_REGISTRY_USERNAME`, `EXTERNAL_REGISTRY_TOKEN` | Your account on that registry, and its token or password. WSO2's registry needs a WSO2 subscription. |
+What for: the MCP Authentication and Authorization cards, where the user signs
+in before the agent may use its tools. They need an identity provider, such as
+Asgardeo or WSO2 Identity Server.
 
-Then run `./scripts/reset-and-setup.sh`: it rebuilds the gateway on those
-images, from an empty state.
+File: `secrets/idp.env`. The full steps, from creating the application to
+filling in the file, are in [Identity provider setup](mcp-identity-provider.md).
 
-### secrets/gateway-keys.env (written for you)
+### Step 5, optional: WSO2's latest product updates
 
-The keys the gateway issues for each card, one per card and provider.
-`provision_showcases.py` writes this file: leave it alone, unless you set up
-the cards by hand in AI Workspace. A card without its key still shows, but the
-gateway refuses its messages.
+What for: run the newest updates of the WSO2 products from WSO2's registry,
+instead of the public images. This needs a WSO2 subscription.
 
-### Passwords, in the environment only
+File: `secrets/registry.env`
 
-Never write these in a file:
+```bash
+cp secrets/registry.env.example secrets/registry.env
+```
 
-- `ADMIN_PASSWORD`: the password of AI Workspace's `admin` user on this
-  machine. `reset-and-setup.sh` asks you to choose it on the first run. The
-  other scripts log in as `admin`/`admin` unless you set it, for example
-  `ADMIN_PASSWORD='...' ./scripts/python/provision_showcases.py`.
-- `REMOTE_ADMIN_PASSWORD`: the admin password of the AI Workspace in
-  `REMOTE_AI_WORKSPACE_URL`: `export REMOTE_ADMIN_PASSWORD='...'`.
+1. Set `USE_EXTERNAL_REGISTRY=true`.
+2. Fill in your registry username and token (`EXTERNAL_REGISTRY_USERNAME`,
+   `EXTERNAL_REGISTRY_TOKEN`).
+3. Run `./scripts/reset-and-setup.sh`. It starts the demo again from an empty
+   state, on those images.
 
-### Filled in by the scripts
+Any other registry works the same way: change `EXTERNAL_REGISTRY_URL`.
 
-`ai-workspace/api-platform.env` and `ai-gateway/api-platform.env` also hold
-credentials, written by the scripts: the admin password hashes
-(`scripts/generate-local-certs.sh`) and the gateway's registration token (the
-provisioning, when it registers the gateway). `reset-and-setup.sh` creates both
-files: there is nothing to get or edit for a local run.
+### Passwords
+
+The demo never stores passwords in a file. The first run of
+`./scripts/reset-and-setup.sh` asks you to choose one for AI Workspace's
+`admin` user. If it is not `admin`, give it to the scripts that need it:
+
+```bash
+ADMIN_PASSWORD='your-password' ./scripts/python/provision_showcases.py
+```
+
+### Files you don't need to touch
+
+- `secrets/gateway-keys.env`: the keys the chatbot uses to call each card on
+  the gateway. The setup writes them.
+- `ai-workspace/api-platform.env` and `ai-gateway/api-platform.env`: the setup
+  creates them and fills them in.
+
+## The demo's options
+
+All in `demo.env`. The defaults work: change a value only for the cases below.
+
+### The gateway's ports are already in use
+
+If another program on your machine already uses the gateway's ports (8443,
+8080...), set:
+
+```
+GATEWAY_PORT_OFFSET=1
+```
+
+Every gateway port then moves up by one (8443 becomes 8444), like the port
+offset of WSO2 products. The chatbot follows by itself.
+
+### Analytics
+
+`ANALYTICS_MODE` chooses where the gateway's analytics go:
+
+- `moesif` (the default): to Moesif, once its Application ID is set (Step 2).
+- `local`: to tools started on your machine, linked in the chatbot's top
+  menu: Grafana (dashboards), Jaeger (the path of each request), OpenSearch
+  Dashboards (the gateway's logs) and Prometheus (raw metrics).
+
+### Peak hours of the Time-based routing card
+
+During peak hours, even complex questions go to the fast model. Set the hours
+and their time zone:
+
+```
+PEAK_HOURS=13:30-18:00
+PEAK_TIMEZONE=Europe/Paris
+```
+
+Then run `./scripts/python/provision_showcases.py`.
+
+### Hide a card during a live demo
+
+If the outside service of a card is down while you present, grey the card out:
+
+```
+DISABLED_CARDS=content-safety,content-safety-bedrock
+```
+
+Card ids are listed in `ai-chatbot/showcases.json`. This takes effect when
+the page is reloaded, without a restart.
+
+### How budgets and rate limits refill
+
+`RATE_LIMIT_ALGORITHM` decides how the spend limit, cost-based routing, token
+quota and MCP rate limit cards count:
+
+- `gcra` (the demo's choice): capacity comes back gradually. The cards are
+  tuned for it.
+- `fixed-window`: the count resets at fixed times of the clock.
+
+In production, weigh this choice against performance and memory use. With
+several gateways, a shared Redis is recommended, with the same choice on each.
+
+### The models the gateway uses itself
+
+Besides the models that answer the customer, the gateway calls two models of
+its own. Both are Mistral's by default. `demo.env` has a ready block for each
+provider: comment out the Mistral one and uncomment the one you want.
+
+- **Embeddings** (`EMBEDDING_*`): turn each question into numbers, so the
+  gateway can compare meanings. Used by Semantic caching, Semantic routing
+  and the meaning-based guards. Possible: Mistral or Gemini (paid key only).
+  Anthropic has none. The cards' thresholds are tuned for Mistral's model.
+- **Classifier** (`CLASSIFIER_*`): reads each question and picks the rule in
+  Intelligent routing. Possible: Mistral, Anthropic or Gemini. If it fails
+  (wrong key, no quota left), every question goes to the backup route.
+
+For a provider other than Mistral, put its key in `secrets/api-keys.env`:
+`EMBEDDINGS_PROVIDER_API_KEY` for the embeddings, `CLASSIFIER_API_KEY` for the
+classifier.
+
+### Change the models that answer
+
+The LLM providers and their models are in `providers.json`, at the root of
+the repo. Each provider has a `small` and a `large` model: the routing cards
+move traffic between the two, the other cards use one of them. The spend
+limit and cost-based routing also need the model's price in
+`ai-gateway/configs/llm-pricing/model_prices.json`.
+
+To leave a provider out for everyone, set `"enabled": false` on it. After a
+change, run `./scripts/run-local.sh`, then
+`./scripts/python/provision_showcases.py`.
+
+### Use an AI Workspace and a gateway that already run elsewhere
+
+To put the cards on an existing deployment instead of your machine:
+
+1. In `demo.env`, uncomment and fill in `REMOTE_AI_WORKSPACE_URL`,
+   `REMOTE_GATEWAY_ID` and `REMOTE_GATEWAY_URL`.
+2. Give the admin password for this session only, never in a file:
+   `export REMOTE_ADMIN_PASSWORD='...'`.
+3. Check what would change, without changing anything:
+   `./scripts/python/provision_showcases.py --check`.
+4. Set up the cards: `./scripts/python/provision_showcases.py`. Add
+   `--skip-existing` to only create what is missing.
+
+The chatbot then uses that gateway. The scripts never register, rename or
+restart it. The cards that need keys from Step 3 or 4 also need those
+settings on that gateway.
+
+Optional, in `demo.env`: `REMOTE_ADMIN_USERNAME` if the admin is not `admin`,
+`REMOTE_PROJECT_ID` to use a project of its own, and
+`REMOTE_GATEWAY_CONTROLLER_URL` (the gateway's management API) to check
+deployments without test calls that would show in analytics. The
+`REMOTE_MCP_GATEWAY_*` lines send the MCP cards to another gateway.
+
+### Settings you normally leave alone
+
+- `DEMO_NAME`: the demo's name, used to name the custom gateway image. Set it
+  before the first run, if at all.
+- `DEMO_HOSTNAME`: only when the demo runs on a server: its public name.
+  Blank on your machine.
+- The versions (`AI_GATEWAY_VERSION` and the others): which product versions
+  run. The gateway's must match `ai-gateway/build.yaml`, and a change needs
+  `./scripts/reset-and-setup.sh`, which starts from an empty state.
+- The ports of the chatbot (8600), AI Workspace (9643), the Platform API
+  (9243) and the API Portal (9543). If you change the chatbot's, change the
+  redirect URL in your identity provider too.
