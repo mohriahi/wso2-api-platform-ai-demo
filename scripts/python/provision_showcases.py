@@ -521,8 +521,8 @@ def lane_templates(provider: dict) -> dict:
         # model-round-robin has the documented requestModel-at-global-scope defect
         # too (README.md:207-210), so it's provisioned the same OPERATION-scoped
         # way as the other routers. The fault-injection step (model genuinely
-        # 503s) needs scripts/python/mocks/llm_fault_proxy.py pointed at by the Anthropic
-        # provider's upstream -- see scripts/failover_demo.sh inject/restore.
+        # 503s) comes from scripts/python/mocks/llm_fault_proxy.py, which
+        # scripts/failover_demo.sh break puts in the provider's upstream.
         "model-failover": {
             "context_suffix": "failover", "displayName": "Model Failover", "wired": True,
             # model-round-robin is a STOCK policy (ships in the base gateway

@@ -1,17 +1,14 @@
 #!/usr/bin/env bash
 # Drives the model-failover showcase's fault-injection step, for whichever
-# provider you're demoing (anthropic, mistral or gemini -- default anthropic).
-#
-# Setup (once per demo session):
-#   python3 scripts/python/mocks/llm_fault_proxy.py --provider anthropic &   # start the mock, leave it running
-#   ./scripts/failover_demo.sh inject                         # point that provider's upstream at it
+# provider you're demoing (anthropic or mistral; anthropic by default).
 #
 # During the demo:
-#   ./scripts/failover_demo.sh break        # the active provider's large model now 503s
-#   ./scripts/failover_demo.sh heal          # passthrough restored
+#   ./scripts/failover_demo.sh break     # the provider's large model now 503s; the first time,
+#                                        # it starts the fault mock and routes the provider through it
+#   ./scripts/failover_demo.sh heal      # passthrough restored
 #
 # Afterwards:
-#   ./scripts/failover_demo.sh restore       # provider back on the real API
+#   ./scripts/failover_demo.sh restore   # provider back on the real API, fault mock stopped
 #
 # Everything here just forwards to scripts/python/failover_control.py, which
 # knows the provider list, the fault-proxy ports and each provider's own

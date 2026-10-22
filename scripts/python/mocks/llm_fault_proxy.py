@@ -10,10 +10,10 @@ chunk for chunk -- EXCEPT when the request names the model currently marked
 error for that provider at 503 and never calls upstream at all. Answers from
 every other model are real answers from the real provider.
 
-One instance per provider (see PROVIDER_DEFAULTS), each sitting permanently
-in that provider's LlmProvider upstream slot (see scripts/failover_demo.sh
-inject/restore) -- normal operation is 100% passthrough, so every other
-showcase on that provider is unaffected.
+One instance per provider (see PROVIDER_DEFAULTS). scripts/failover_demo.sh
+break starts it and puts it in that provider's LlmProvider upstream slot;
+restore takes it out and stops it. Until a model is broken it is 100%
+passthrough, so every other showcase on that provider is unaffected.
 
 Stdlib only, no deps -- same convention as ai-chatbot/server.py.
 """
@@ -51,8 +51,8 @@ PROVIDER_DEFAULTS = {
 
 _PATH_MODEL_RE = re.compile(r"models/([A-Za-z0-9.-]+)")
 
-# Default port per provider -- scripts/failover_demo.sh and
-# provision_showcases.py's FAULT_PROXY_PORTS must agree with these.
+# Default port per provider: failover_control.py's FAULT_PROXY_PORTS must
+# agree with these.
 DEFAULT_PORTS = {"anthropic": 8602, "mistral": 8603, "gemini": 8604}
 
 # Hop-by-hop headers that must never be forwarded verbatim in either
