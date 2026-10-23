@@ -209,9 +209,8 @@ function cardHtml(showcase, group) {
   /* In a group like OWASP or the EU AI Act: the risk or article it answers. */
   const ref = (showcase.refs || {})[group];
 
-  /* A disabled card (DISABLED_CARDS in demo.env, or "enabled": false in
-   * showcases.json) stays on the home screen, greyed out and not clickable,
-   * with its blockedBy reason. */
+  /* A disabled card (DISABLED_CARDS in demo.env) stays on the home screen,
+   * greyed out and not clickable, with its blockedBy reason. */
   const disabled = showcase.status === 'disabled';
   return '<a class="card' + (disabled ? ' is-disabled" aria-disabled="true" tabindex="-1"' : '"')
     + ' href="#/' + encodeURIComponent(showcase.id) + '">'
