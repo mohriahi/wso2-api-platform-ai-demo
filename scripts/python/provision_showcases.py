@@ -1046,7 +1046,9 @@ def write_agent(card: dict, state: dict):
                              "operationConfigs": {"transports": [
                                  {"protocolBinding": "JSONRPC", "pathPrefix": "/"},
                                  {"protocolBinding": "HTTP+JSON", "pathPrefix": "/v1"}],
-                                 "policies": a2a.get("policies", [])},
+                                 "policies": a2a.get("policies", []),
+                                 # Rules for one A2A operation only, such as SendMessage.
+                                 **({"operations": a2a["operations"]} if a2a.get("operations") else {})},
                              "agentCard": {"public": {"mode": "passthrough", "rewriteUrls": True}}}}}
     exists = controller_api(A2A_GATEWAY, "GET", f"/agents/{card['id']}")[0] == 200
     status, resp = (controller_api(A2A_GATEWAY, "PUT", f"/agents/{card['id']}", body) if exists

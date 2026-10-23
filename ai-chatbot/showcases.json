@@ -3182,6 +3182,98 @@
       }
     },
     {
+      "id": "a2a-rate-limit",
+      "group": "agent-governance",
+      "a2a": {
+        "agent": "Acme Roaming Agent",
+        "context": "/acme-roaming-limit",
+        "upstream": "http://acme-roaming:8000",
+        "policies": [],
+        "operations": [
+          {
+            "name": "SendMessage",
+            "policies": [
+              {
+                "name": "basic-ratelimit",
+                "version": "v1",
+                "params": {
+                  "limits": [
+                    {
+                      "requests": 3,
+                      "duration": "1m"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "title": "Agent rate limit",
+      "tagline": "The gateway caps how many messages an agent receives: a client stuck in a loop is stopped.",
+      "capability": "basic-ratelimit v1.1.1",
+      "status": "ready",
+      "blockedBy": [],
+      "policies": [
+        "basic-ratelimit v1.1.1"
+      ],
+      "emphasis": [
+        "latency"
+      ],
+      "intro": {
+        "chips": []
+      },
+      "steps": [
+        {
+          "n": 1,
+          "title": "Three questions",
+          "sends": [
+            {
+              "ask": "I'm going to Spain in May. Will my phone work there?",
+              "expect": {
+                "text": "The agent answers: first message this minute."
+              }
+            },
+            {
+              "ask": "And if I go to Japan?",
+              "expect": {
+                "text": "Answered: second message."
+              }
+            },
+            {
+              "ask": "What about Canada?",
+              "expect": {
+                "text": "Answered: third and last message allowed this minute."
+              }
+            }
+          ],
+          "notes": "Three messages per minute to this agent, counted at the gateway on message sending only."
+        },
+        {
+          "n": 2,
+          "title": "The fourth is refused",
+          "sends": [
+            {
+              "ask": "And Italy?",
+              "expect": {
+                "gatewayStatus": 429,
+                "text": "The gateway answers 429: the agent never sees the fourth message."
+              }
+            }
+          ],
+          "notes": "Reading the agent card is not limited: only sending messages is."
+        }
+      ],
+      "notes": "basic-ratelimit on the SendMessage operation only (operationConfigs.operations), 3 per minute, counted for the whole agent proxy rather than per conversation: the limiter cannot read the A2A context id from the message. With gcra, the demo's RATE_LIMIT_ALGORITHM, one message comes back every 20 seconds, so the card can be rerun quickly. The agent card route is not limited.",
+      "gateway": {
+        "stream": false,
+        "limit": {
+          "title": "Rate limit reached",
+          "message": "the gateway refused this message: this agent takes 3 messages a minute"
+        }
+      }
+    },
+    {
       "id": "a2a-agent",
       "group": "baseline",
       "a2a": {

@@ -114,6 +114,7 @@ export async function ask(question, origin) {
       turn.outcome = outcome === 'policy_block' || outcome === 'signin_required' ? 'blocked'
                    : outcome === 'budget_exhausted' ? 'refused'
                    : 'error';
+      turn.limitTitle = payload.limitTitle || '';
 
       const status = payload.gatewayStatus
         ? ' (gateway returned HTTP ' + payload.gatewayStatus + ')'

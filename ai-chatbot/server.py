@@ -1577,6 +1577,10 @@ class Handler(BaseHTTPRequestHandler):
             payload = {"error": "the gateway did not pass the message to the agent", "gatewayStatus": exc.code,
                        "gatewayOutcome": outcome, "showcase": showcase["id"], "gatewayBody": body[:4000]}
             payload.update(gateway_meta(exc.headers))
+            # A card's own limit (a rate limit on the agent) is not a cost budget.
+            if outcome == "budget_exhausted" and showcase.get("limit"):
+                payload["error"] = showcase["limit"]["message"]
+                payload["limitTitle"] = showcase["limit"]["title"]
             return self._json(422 if outcome in ("policy_block", "budget_exhausted") else 502, payload)
         except urllib.error.URLError as exc:
             return self._json(502, {"error": "cannot reach the gateway", "gatewayOutcome": "unreachable",
