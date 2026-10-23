@@ -100,9 +100,15 @@ let a2aEnabled = false;
 
 function pageOf(showcase) { return showcase.a2a ? 'a2a' : showcase.mcp ? 'mcp' : 'llm'; }
 
+const PAGE_NAMES = { llm: 'LLM Gateway', mcp: 'MCP Gateway', a2a: 'A2A Gateway' };
+
 function setPage(page) {
   activePage = page;
   document.body.dataset.page = page;
+  /* The breadcrumb's first step: this page, and the way back to it from a card. */
+  const crumb = document.getElementById('crumb-page');
+  crumb.textContent = PAGE_NAMES[page];
+  crumb.href = '#/' + page;
 }
 
 /* Where the provider picker stands on the LLM page, the MCP and A2A pages
@@ -472,14 +478,14 @@ function mountShowcase(showcase) {
   brandProduct.textContent = name;
   document.title = name + ' - AI Gateway showcase';
 
-  /* The status line names the provider, so the reminder that these cards are
-   * different providers, not different prompts, is always on screen. */
-  statusEl.title = showcase.a2a
+  /* The gateway's tooltip gives this card's route on it, for the presenter;
+   * the audience sees the path, not the plumbing. */
+  statusEl.title = (showcase.a2a
     ? 'The agent proxy on the gateway this card\'s messages go through, with its policy attached.'
     : showcase.mcp
     ? 'The MCP proxy on the gateway this card\'s tool calls go through, with its policy attached.'
-    : STATUS_TITLE;
-  setIdleStatus(showcase.gatewayContext ? 'via ' + showcase.gatewayContext : 'no provider wired');
+    : STATUS_TITLE) + (showcase.gatewayContext ? ' Route: ' + showcase.gatewayContext : '');
+  setIdleStatus(showcase.gatewayContext ? '' : 'not wired');
 
   refreshSignin(showcase);
 
@@ -587,7 +593,7 @@ function mountHome(page) {
   setPage(page);
   renderCards();
   setIdleStatus();
-  statusEl.title = '';
+  statusEl.title = 'Every message of these cards goes through the WSO2 AI Gateway.';
   activeId = null;
   activeShowcase = null;
   showBackend();
