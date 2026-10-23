@@ -16,8 +16,8 @@
  */
 'use strict';
 
-import { wordmark } from './dom.js';
-import { loadProviders, loadRegistry, applyHash } from './screens.js';
+import { wordmark, input } from './dom.js';
+import { loadProviders, loadRegistry, applyHash, setIntro } from './screens.js';
 import { renderLauncher } from './launcher.js';
 import './chat.js';
 
@@ -26,6 +26,12 @@ fetch('/api/config')
   .then((c) => {
     if (c.brand) {
       wordmark.textContent = c.brand.toUpperCase();
+    }
+    if (c.intro) setIntro(c.intro);
+    if (c.placeholder) input.placeholder = c.placeholder;
+    /* The business's own colours, if it has any. */
+    for (const [name, value] of Object.entries(c.theme || {})) {
+      document.documentElement.style.setProperty('--' + name, value);
     }
     renderLauncher(c.launcher);
   })

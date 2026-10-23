@@ -35,6 +35,9 @@ version of every card; a provider left blank is simply skipped.
 | Mistral | `MISTRAL_API_KEY` | [Mistral console](https://console.mistral.ai/api-keys). A free plan is enough. |
 | Gemini | `GEMINI_API_KEY` | [Google AI Studio](https://aistudio.google.com/apikey). Turn billing on: the free tier allows only about 20 requests per model per day. |
 
+Gemini is left out by default: to use it, take it out of `DISABLED_PROVIDERS`
+in `demo.env`.
+
 We recommend **Anthropic and Mistral together**: it is the combination the
 demo is tested with. Mistral matters even if you mostly show another
 provider: the gateway uses a Mistral model of its own to understand the
@@ -151,6 +154,33 @@ ADMIN_PASSWORD='your-password' ./scripts/python/provision_showcases.py
 ## ⚙️ The demo's options
 
 All in `demo.env`. The defaults work: change a value only for the cases below.
+
+### The business the demo plays
+
+The same cards play a mobile operator or a bank:
+
+```
+DEMO_VERTICAL=telco   # Acme Mobile
+DEMO_VERTICAL=bank    # Acme Bank
+```
+
+Then run `./scripts/run-local.sh`. Each business has its own project in AI
+Workspace and its own routes on the gateways (`/telco/...`, `/bank/...`), so
+both can stay in place side by side. The first time a business is chosen, it
+is set up (a few minutes); after that, switching takes a minute or two.
+
+Each business is a folder of `verticals/`:
+
+- `vertical.json`: its brand and colours, its assistant, its customer, its
+  MCP tools and agents, and the words the gateway's rules work with (allowed
+  topics, routing examples, personal data patterns, thresholds);
+- `catalogue.md`: the products the assistant talks about;
+- `cards.json`: the questions and expected answers of its cards, where they
+  differ from `ai-chatbot/showcases.json`.
+
+To add a business, copy a folder and rewrite it. Then check it with
+`python3 scripts/python/calibrate.py`: it proposes the thresholds that suit
+its wording, and says how many answers each budget lasts with its catalogue.
 
 ### The gateway's ports are already in use
 
@@ -282,9 +312,13 @@ move traffic between the two, the other cards use one of them. The spend
 limit and cost-based routing also need the model's price in
 `ai-gateway/configs/llm-pricing/model_prices.json`.
 
-To leave a provider out for everyone, set `"enabled": false` on it. After a
-change, run `./scripts/run-local.sh`, then
+After changing a model, run `./scripts/run-local.sh`, then
 `./scripts/python/provision_showcases.py`.
+
+To leave a provider out on this machine, list it in `DISABLED_PROVIDERS` in
+`demo.env` (Gemini, by default; Anthropic cannot be left out). To leave it
+out for everyone, set `"enabled": false` on it. Then run
+`./scripts/run-local.sh`: a few minutes when a provider comes back.
 
 ### Use an AI Workspace and a gateway that already run elsewhere
 
@@ -304,8 +338,7 @@ restart it. The cards that need keys from 3. or 4. also need those
 settings on that gateway.
 
 Optional, in `demo.env`: `REMOTE_ADMIN_USERNAME` if the admin is not `admin`,
-`REMOTE_PROJECT_ID` to use a project of its own, and
-`REMOTE_GATEWAY_CONTROLLER_URL` (the gateway's management API) to check
+and `REMOTE_GATEWAY_CONTROLLER_URL` (the gateway's management API) to check
 deployments without test calls that would show in analytics. The
 `REMOTE_MCP_GATEWAY_*` lines send the MCP cards to another gateway.
 

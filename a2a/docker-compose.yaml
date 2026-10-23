@@ -21,24 +21,31 @@ services:
     ports: !override
       - "${A2A_GATEWAY_HTTPS_PORT}:8443"
 
-  acme-roaming:
-    build: ../a2a/acme-roaming
-    image: ${DEMO_NAME:-ai-demo}-acme-roaming:latest
+  # The business's own agent, for every business at /<business>.
+  acme-agent:
+    build: ../a2a/agent
+    image: ${DEMO_NAME:-ai-demo}-a2a-agent:latest
     environment:
-      # The address the agent advertises in its card: the one the gateway reaches it on.
-      - PUBLIC_URL=http://acme-roaming:8000
+      - ROLE=agent
+      # The address the agent advertises in its card (plus /<business>): the
+      # one the gateway reaches it on.
+      - PUBLIC_URL=http://acme-agent:8000
+    volumes:
+      - ../verticals:/verticals:ro
     mem_limit: 128m
     networks:
       - gateway-network
 
-  # A partner's travel agent, from the same code: its own card hides an
-  # instruction for the agents that read it.
-  globetrotter-agent:
-    build: ../a2a/acme-roaming
-    image: ${DEMO_NAME:-ai-demo}-acme-roaming:latest
+  # A partner's agent, from the same code: its own card hides an instruction
+  # for the agents that read it.
+  partner-agent:
+    build: ../a2a/agent
+    image: ${DEMO_NAME:-ai-demo}-a2a-partner:latest
     environment:
-      - AGENT_PROFILE=globetrotter
-      - PUBLIC_URL=http://globetrotter-agent:8000
+      - ROLE=partner
+      - PUBLIC_URL=http://partner-agent:8000
+    volumes:
+      - ../verticals:/verticals:ro
     mem_limit: 128m
     networks:
       - gateway-network

@@ -143,9 +143,12 @@ const TOOL_OUTCOMES = {
 };
 
 /* The agent card the gateway served this turn: which agent, and the address
- * it gives for JSON-RPC, which the gateway has pointed at itself. */
+ * it gives for JSON-RPC, which the gateway has pointed at itself. On the card
+ * that compares the two, which one was read: the partner's own shows in red. */
+const CARD_HEADS = { own: 'The partner\'s own card, not vetted', vetted: 'The card the gateway vetted' };
 export function agentCardHtml(card) {
-  return '<p class="tool-list"><span>Agent card served by the gateway</span>'
+  return '<p class="tool-list' + (card.card === 'own' ? ' is-own' : '') + '"><span>'
+    + escapeHtml(CARD_HEADS[card.card] || 'Agent card served by the gateway') + '</span>'
     + '<code>' + escapeHtml(card.name || '?') + '</code>'
     + '<code class="is-endpoint">' + escapeHtml(card.binding + ' ' + card.url) + '</code></p>'
     /* On a card whose assistant reads the agent card: what it decided. */

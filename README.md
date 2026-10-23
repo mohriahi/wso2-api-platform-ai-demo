@@ -3,8 +3,10 @@
 A self-contained, local demo of the WSO2 AI Platform's gateway: LLM
 showcases, each driving a real policy (routing, caching, guardrails, spend
 limits, failover...) against Anthropic, Mistral and Gemini, and MCP showcases
-where an agent uses tools through the gateway. Everything runs on
-your machine with Docker Compose: nothing to deploy, nothing shared.
+where an agent uses tools through the gateway. The same demo plays a mobile
+operator (Acme Mobile) or a bank (Acme Bank), one setting in `demo.env`.
+Everything runs on your machine with Docker Compose: nothing to deploy,
+nothing shared.
 
 ## Overview
 
@@ -37,6 +39,8 @@ wso2-api-platform-ai-demo/
 ├── ai-gateway/       WSO2 AI Gateway: policies, custom image, compose stack
 ├── ai-workspace/     AI Workspace: AI control plane
 ├── mcp-servers/      MCP servers behind the MCP showcases, own compose stack
+├── a2a/              the agents behind the A2A showcases, and their gateway
+├── verticals/        each business the demo can play: brand, catalogue, wording
 ├── scripts/          setup, run, stop, logs, certificate generation
 ├── secrets/          API keys and credentials (only the examples are in git)
 ├── .docs/            architecture diagram and other reference docs
@@ -78,8 +82,9 @@ wso2-api-platform-ai-demo/
 | Prompt compression | The gateway compresses the system prompt, and long messages, before the model reads them: about a fifth fewer input tokens, same answers |
 
 On the **MCP Gateway** page, the assistant becomes an agent. Its tools come
-from a small Acme Mobile MCP server (`mcp-servers/acme-mobile/`): list the
-plans, read the customer's account, change the plan. Its model goes through the
+from a small MCP server (`mcp-servers/`): for Acme Mobile, list the plans,
+read the customer's account, change the plan (for Acme Bank, the same with
+account packages). Its model goes through the
 LLM Gateway and its tool calls through MCP proxies; each call shows in the
 reply, with what the gateway did.
 
@@ -94,7 +99,7 @@ reply, with what the gateway did.
 | Tool result screening (Jev) | The same attack in what a tool returns: the partner's terms end with a note for the agent; Jev spots it and the gateway withholds the result |
 | SIM swap fraud (Jev) | The agent can send a replacement SIM; Jev checks each order against the agent's job, and the gateway refuses one going anywhere but the customer's address (whoever gets the SIM gets the number) |
 | Authentication | Without a signed-in user the gateway answers 401; the page signs you in, as any MCP client would |
-| Authorization | Same token, per-tool rule: only a user whose role grants `acme:plan:write` may change the plan |
+| Authorization | Same token, per-tool rule: only a user whose role grants `account:write` may change the plan |
 
 The last two need an OpenID Connect identity provider (Asgardeo, WSO2 Identity
 Server or any other): see the [IDP Setup](.docs/mcp-identity-provider.md).
@@ -108,7 +113,7 @@ Server or any other): see the [IDP Setup](.docs/mcp-identity-provider.md).
 
 With `A2A_ENABLED=true` in `demo.env`, a third page appears. There, the
 assistant does not answer by itself: it passes the customer's question to
-another agent, the roaming agent (`a2a/acme-roaming/`), through the gateway.
+another agent (`a2a/agent/`), through the gateway.
 
 The gateway sits between the two agents:
 
@@ -147,7 +152,8 @@ service.
 - **API keys**: we recommend [Anthropic](https://platform.claude.com/settings/keys)
   (with credit) and [Mistral](https://console.mistral.ai/api-keys) (a free
   key is enough). [Gemini](https://aistudio.google.com/apikey) works too, with
-  billing on: its free tier is too small for a demo.
+  billing on: its free tier is too small for a demo. It is left out by
+  default (`DISABLED_PROVIDERS` in `demo.env`).
 
 Optional: the third-party cards (Azure, AWS Bedrock, Jev) and sign-in for the
 MCP cards need an account with that service. Until it is set up, the card is
@@ -195,6 +201,12 @@ If another program already uses the gateway's ports (8080, 8443...), see
 ./scripts/clear-cache.sh    # empty the semantic cache (also a button on the Semantic caching card)
 ```
 
+To switch the business the demo plays, set `DEMO_VERTICAL` in `demo.env`
+(`telco` for Acme Mobile, `bank` for Acme Bank), then run
+`./scripts/run-local.sh`. Each business has its own project in AI Workspace:
+the first time a business is chosen, it is set up (a few minutes); after
+that, switching takes a minute or two.
+
 Only reach for `reset-and-setup.sh` again if you actually want a clean
 slate: it wipes every database (providers, gateway registrations, cached
 responses) and provisions from scratch.
@@ -205,7 +217,9 @@ Open the chatbot at http://localhost:8600 and try the showcases. Its launcher
 menu links to the other consoles.
 
 Then open AI Workspace (https://localhost:9643, user `admin`) to see how it's
-all modeled in the platform:
+all modeled in the platform. Each business the demo plays has its own project
+(Acme Mobile, Acme Bank), with its own proxies and applications; the
+providers are shared.
 
 The gateway, registered and active:
 ![Gateway](.docs/preview-ai-workspace-ai-gateway.png)
@@ -229,9 +243,10 @@ the Analytics view:
 ## Configuration
 
 Nothing to configure for a first run apart from one API key. Everything else
-is optional: more cards (Azure, AWS, Jev, sign-in for the MCP cards),
-analytics, other models, ports already in use, or an AI Workspace that already
-runs elsewhere. See [Configuring the demo](.docs/configuration.md).
+is optional: the business the demo plays (Acme Mobile or Acme Bank), more
+cards (Azure, AWS, Jev, sign-in for the MCP cards), analytics, other models,
+ports already in use, or an AI Workspace that already runs elsewhere. See
+[Configuring the demo](.docs/configuration.md).
 
 The demo's options live in `demo.env`, created on the first run. Git ignores
 it, so what you change there stays on your machine.

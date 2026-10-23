@@ -14,21 +14,8 @@
  * carries -- the same file llm-cost charges the budget from. The budget
  * AMOUNT itself comes from providers.json's costBudget (via /api/providers,
  * screens.js's costBudgetFor() -- each provider calibrated to its own
- * pricing, see provision_showcases.py's budget_for()); showcases.json only
- * declares which ROLE is the deep/fallback model and the prices dict, and
- * this module resolves the active provider's own amount/model/fallbackModel
- * and multiplies out from there.
- *
- * showcases.json's `prices` dict is a hand-copied snapshot, keyed by the
- * LITERAL model ids configured today, not derived live the way costBudget
- * is. Change a provider's models.small/large in providers.json to a model
- * not already a key here and this breaks QUIETLY: turnCost() finds no price,
- * the turn counts as "unpriced", and the meter just stops moving for that
- * provider -- no error, nothing in the console, the gateway's own budget
- * enforcement keeps working regardless since it never reads this file. Add
- * the new model's {input, output} here (same numbers as
- * ai-gateway/configs/llm-pricing/model_prices.json) whenever a model
- * changes.
+ * pricing). The server sends the prices with the card, from that same
+ * file, so the meter and the gateway always agree.
  *
  * Two honesty rules follow, and the UI keeps both:
  *

@@ -9,6 +9,7 @@
 #   3. Start AI Workspace (the control plane).
 #   4. Start the AI Gateway (the data plane).
 #   5. Start the chatbot.
+#   6. Set the gateway up for the business (DEMO_VERTICAL), the first time only.
 #
 # Needs api-platform.env in ai-workspace/ and ai-gateway/ (reset-and-setup.sh
 # creates them from their .example) and ai-chatbot/config.env.
@@ -24,8 +25,8 @@ source "$ROOT/scripts/tools.sh"
 # Each container's output goes to a log file here, not to the terminal.
 LOGS="$ROOT/.logs"
 
-# ==== Step 1/5: read the settings =============================================
-echo "### 1/5 settings"
+# ==== Step 1/6: read the settings =============================================
+echo "### 1/6 settings"
 load_demo_env "$ROOT"   # this machine's settings, created on the first run (see tools.sh)
 resolve_python   # the Python 3 to use (see tools.sh)
 resolve_analytics "$ROOT"   # says in the terminal when analytics stay off (see tools.sh)
@@ -36,35 +37,48 @@ require_env "$ROOT/ai-workspace/api-platform.env"
 require_env "$ROOT/ai-gateway/api-platform.env"
 require_env "$ROOT/ai-chatbot/config.env"
 
-# ==== Step 2/5: MCP servers ===================================================
-echo "### 2/5 mcp-servers"
+# ==== Step 2/6: MCP servers ===================================================
+echo "### 2/6 mcp-servers"
 # The MCP servers' network, shared with the gateway and AI Workspace (see the
 # two docker-compose.override.yaml files).
 docker network inspect "$DEMO_NAME-mcp" >/dev/null 2>&1 || docker network create "$DEMO_NAME-mcp" >/dev/null
 # Recreated on every run, so the current version of their code is the one running.
-(cd "$ROOT/mcp-servers" && docker compose up -d --force-recreate) >"$LOGS/mcp-servers.log" 2>&1
+(cd "$ROOT/mcp-servers" && docker compose up -d --force-recreate --remove-orphans) >"$LOGS/mcp-servers.log" 2>&1
 # The A2A Gateway page's own gateway and agent, when that page is on
 # (A2A_ENABLED in demo.env).
 if [[ "${A2A_ENABLED:-false}" == true ]]; then
-  "$ROOT/scripts/a2a-compose.sh" up -d --build >"$LOGS/a2a.log" 2>&1
+  "$ROOT/scripts/a2a-compose.sh" up -d --build --remove-orphans >"$LOGS/a2a.log" 2>&1
+  # The agents are restarted on every run too, so an edit to verticals/ shows.
+  "$ROOT/scripts/a2a-compose.sh" up -d --force-recreate --no-deps acme-agent partner-agent >>"$LOGS/a2a.log" 2>&1
 else
   "$ROOT/scripts/a2a-compose.sh" down >"$LOGS/a2a.log" 2>&1
 fi
 
-# ==== Step 3/5: AI Workspace (control plane) ==================================
-echo "### 3/5 ai-workspace"
+# ==== Step 3/6: AI Workspace (control plane) ==================================
+echo "### 3/6 ai-workspace"
 (cd "$ROOT/ai-workspace" && docker compose up -d --wait) >"$LOGS/ai-workspace.log" 2>&1
 
-# ==== Step 4/5: AI Gateway (data plane) =======================================
-echo "### 4/5 ai-gateway"
+# ==== Step 4/6: AI Gateway (data plane) =======================================
+echo "### 4/6 ai-gateway"
 "$ROOT/scripts/gateway-compose.sh" up -d >"$LOGS/ai-gateway.log" 2>&1
 
-# ==== Step 5/5: chatbot =======================================================
-echo "### 5/5 ai-chatbot"
+# ==== Step 5/6: chatbot =======================================================
+echo "### 5/6 ai-chatbot"
 # Stops the previous chatbot first, or it would keep the port and the new one
 # could not start.
 "$ROOT/scripts/stop-ai-chatbot.sh"
 (cd "$ROOT/ai-chatbot" && nohup "$PYTHON" server.py >"$LOGS/ai-chatbot.log" 2>&1 &)
+
+# ==== Step 6/6: the business ==================================================
+# Each business (DEMO_VERTICAL) has its own project in AI Workspace and its own
+# routes on the gateways. The first time a business, or a provider
+# (DISABLED_PROVIDERS), is chosen, it is set up (a few minutes); after that,
+# switching takes a minute or two.
+echo "### 6/6 business: ${DEMO_VERTICAL:-telco}"
+if ! "$PYTHON" "$ROOT/scripts/python/provision_showcases.py" --is-set-up 2>/dev/null; then
+  echo "  first time for this business or provider: setting the gateway up (log: $LOGS/provisioning.log)"
+  "$PYTHON" "$ROOT/scripts/python/provision_showcases.py" >"$LOGS/provisioning.log" 2>&1
+fi
 
 echo
 echo "done. Everything is up:"

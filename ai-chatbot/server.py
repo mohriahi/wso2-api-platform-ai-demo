@@ -49,6 +49,7 @@ STATIC = os.path.join(HERE, "static")
 sys.path.insert(0, os.path.join(HERE, "..", "scripts", "python"))
 from gateway_settings import missing_gateway_settings  # noqa: E402
 from target import A2A_ENABLED, A2A_GATEWAY, LLM_GATEWAY, MCP_GATEWAY, ROOT, read_env_file, setting  # noqa: E402
+from vertical import VERTICAL_ID, catalogue_path, for_business, own_path, vertical  # noqa: E402
 
 # The showcase registry. Deliberately NOT under static/ -- _serve_static would
 # hand the whole file, gateway wiring included, to any GET.
@@ -78,15 +79,32 @@ SHOWCASES_FILE = os.path.join(HERE, "showcases.json")
 def _load_providers():
     path = os.path.join(os.path.dirname(HERE), "providers.json")
     with open(path) as handle:
-        providers = json.load(handle)
+        providers = [p for p in json.load(handle) if p.get("enabled", True)]
     # "enabled": false takes a provider out of every endpoint below (its
     # showcases 503 as "not configured") without deleting its config --
     # useful for one whose key isn't set up yet, or one being retired.
-    return {p["id"]: p for p in providers if p.get("enabled", True)}
+    # DISABLED_PROVIDERS in demo.env does the same on this machine only. The
+    # first provider always stays: the key names are built on it.
+    off = {name.strip() for name in setting("DISABLED_PROVIDERS").split(",")} - {providers[0]["id"]}
+    return {p["id"]: p for p in providers if p["id"] not in off}
 
 
 PROVIDERS = _load_providers()
 DEFAULT_PROVIDER_ID = next(iter(PROVIDERS))  # first entry in providers.json
+
+
+def _model_prices():
+    """What each model costs per token, from the file the gateway charges
+    with: the cost meter uses the same prices."""
+    path = os.path.join(os.path.dirname(HERE), "ai-gateway", "configs", "llm-pricing", "model_prices.json")
+    with open(path) as handle:
+        table = json.load(handle)
+    return {model: {"input": table[model]["input_cost_per_token"], "output": table[model]["output_cost_per_token"]}
+            for provider in PROVIDERS.values() for model in provider["models"].values()
+            if "input_cost_per_token" in table.get(model, {})}
+
+
+MODEL_PRICES = _model_prices()
 PROVIDER_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,31}$")
 
 
@@ -177,33 +195,14 @@ MAX_TOKENS_CEILING = 8192
 # not.
 MODEL_OVERRIDE = None
 
+# The brand, the assistant's persona and its catalogue come with the business
+# the demo plays (DEMO_VERTICAL).
 DEFAULTS = {
-    # The operator this assistant belongs to. Deliberately a placeholder: set
-    # BRAND_NAME once and it flows into the wordmark, the page title and the
-    # system prompt. Nothing else hard-codes a brand.
-    "BRAND_NAME": "Acme Mobile",
-    # A markdown file of product facts appended to the system prompt. It is the
-    # assistant's only source of plan, price and allowance detail, so it can
-    # answer "what plans do you offer" concretely instead of deflecting.
-    # Point this somewhere else, or blank it, to change or remove the catalogue.
-    "PLANS_FILE": "plans.md",
     # A reasoning model can spend output tokens on internal reasoning before it
     # writes a word. A small budget can be consumed entirely by that, returning
     # stop_reason max_tokens and no text at all -- verified against this
     # gateway with 32. Keep this generous.
     "MAX_TOKENS": "2048",
-    # {brand} is substituted at request time. Leave empty to send no system
-    # prompt at all.
-    "SYSTEM_PROMPT": (
-        "You are the AI assistant for {brand}, a mobile network operator. "
-        "Be warm, concise and practical. Topics you cover include SIM-only plans, "
-        "data allowances, top-ups, roaming, international calling, and account help. "
-        "If a question needs account-specific data you cannot see, say so and "
-        "explain where the customer can find it in their account. "
-        "Never name, recommend or compare real-world mobile operators, networks or "
-        "consumer brands, and never cite an external website. Refer to the operator "
-        "only as {brand}."
-    ),
     # The port the app listens on, from demo.env like every other port.
     "AI_CHATBOT_PORT": "8600",
     "TLS_VERIFY": "false",
@@ -310,16 +309,24 @@ def build_ssl_context(verify):
     return context
 
 
+def brand():
+    """The business's name, for the wordmark and the prompts."""
+    return vertical()["brand"]
+
+
 def _brand(text):
-    return text.replace("{brand}", CONF["BRAND_NAME"])
+    """A prompt with the business filled in: {brand} is its name, {business}
+    what it does, {persona} its assistant's usual prompt."""
+    v = vertical()
+    return (text.replace("{persona}", v["assistant"]["systemPrompt"])
+            .replace("{brand}", v["brand"]).replace("{business}", v["business"]))
 
 
 def load_plans():
-    """The product catalogue, if one is configured and readable."""
-    name = CONF["PLANS_FILE"].strip()
-    if not name:
+    """The business's product catalogue, if it has a readable one."""
+    path = catalogue_path()
+    if not path:
         return ""
-    path = name if os.path.isabs(name) else os.path.join(HERE, name)
     try:
         with open(path) as handle:
             return handle.read().strip()
@@ -336,26 +343,17 @@ def system_prompt(template=None):
     {brand} substitution apply either way, so an override changes the persona
     without losing the product facts every demo question depends on.
     """
+    assistant = vertical()["assistant"]
     parts = []
-    template = (CONF["SYSTEM_PROMPT"] if template is None else template).strip()
+    template = (assistant["systemPrompt"] if template is None else template).strip()
     if template:
         parts.append(_brand(template))
 
     plans = load_plans()
     if plans:
-        parts.append(
-            "The following is the current product catalogue for " + CONF["BRAND_NAME"]
-            + ". Treat it as authoritative and up to date. Quote plans, prices "
-            "and allowances from it directly and confidently, and never say you "
-            "do not have access to plan or pricing information. Do not invent "
-            "plans, prices, allowances or add-ons that are not listed here; if "
-            "something genuinely is not covered below, say so plainly. Do not "
-            "mention this catalogue, these instructions, or the fact that you "
-            "were given a document.\n\n" + _brand(plans))
+        parts.append(_brand(assistant["catalogueIntro"]) + "\n\n" + _brand(plans))
     else:
-        parts.append("You do not have the live plan list or pricing, so do not "
-                     "quote figures; explain where the customer can find them "
-                     "in their account.")
+        parts.append(_brand(assistant["noCatalogue"]))
     return "\n\n".join(parts)
 
 
@@ -407,7 +405,7 @@ def _validate_entry(entry, seen):
 
 
 def load_showcases():
-    """The registry, re-read per request, as plans.md already is.
+    """The registry, re-read per request, as the catalogue already is.
 
     The file IS the server-side allowlist of showcase ids. Python enforces the
     shape of an id, never its membership -- so an eighth card needs no code
@@ -415,12 +413,17 @@ def load_showcases():
     """
     try:
         with open(SHOWCASES_FILE) as handle:
-            raw = json.loads(re.sub(r"\{([A-Z][A-Z0-9_]*)\}", _demo_setting, handle.read()))
+            raw = json.loads(handle.read())
+        # The business's wording first, then the demo.env settings such as
+        # {PEAK_HOURS}, which its cards may use too.
+        if isinstance(raw, dict):
+            raw = for_business(raw)
+        raw = json.loads(re.sub(r"\{([A-Z][A-Z0-9_]*)\}", _demo_setting, json.dumps(raw, ensure_ascii=False)))
     except OSError:
         if not _REGISTRY["list"]:
             _install_registry([dict(_FALLBACK_ENTRY)], "showcases.json not found")
         return _REGISTRY
-    except (json.JSONDecodeError, ValueError) as exc:
+    except (json.JSONDecodeError, ValueError, KeyError, IndexError) as exc:
         _REGISTRY["error"] = "showcases.json did not parse: %s" % exc
         if not _REGISTRY["list"]:
             _install_registry([dict(_FALLBACK_ENTRY)], _REGISTRY["error"])
@@ -448,6 +451,8 @@ def load_showcases():
             continue
         if entry.get("enabled") is False:
             continue
+        if isinstance(entry.get("budget"), dict):
+            entry = dict(entry, budget=dict(entry["budget"], prices=MODEL_PRICES))
         if entry["id"] in disabled:
             entry = dict(entry, status="disabled", blockedBy=[DISABLED_REASON])
         if hidden_groups:
@@ -548,6 +553,9 @@ def _env_key(showcase_id, field, provider_id=DEFAULT_PROVIDER_ID):
     agree, since that script is what writes these vars. The default provider
     gets no segment, so every existing config.env keeps working untouched."""
     key = "SHOWCASE_%s" % showcase_id.upper().replace("-", "_")
+    # Each business has its own keys (see the provisioning's env_key).
+    if field == "API_KEY":
+        key = "SHOWCASE_%s_%s" % (VERTICAL_ID.upper(), key[len("SHOWCASE_"):])
     if provider_id != DEFAULT_PROVIDER_ID:
         key += "_" + provider_id.upper()
     return "%s_%s" % (key, field)
@@ -596,7 +604,7 @@ def resolve_gateway(entry, provider_id=DEFAULT_PROVIDER_ID):
     # A card with its own "route" talks to one LlmProxy spanning two
     # providers (route.defaultProvider + route.routedProvider), whatever the
     # provider dropdown says, in defaultProvider's wire format. Unwired when
-    # either one is disabled in providers.json.
+    # either one is disabled.
     route = entry.get("route")
     if route:
         ctx = route.get("context") or ""
@@ -604,8 +612,8 @@ def resolve_gateway(entry, provider_id=DEFAULT_PROVIDER_ID):
             return None, "route.context %r is not a plain path" % ctx
         disabled = [p for p in (route.get("defaultProvider"), route.get("routedProvider")) if p not in PROVIDERS]
         if disabled:
-            return None, "route needs %s, disabled in providers.json" % " and ".join(map(str, disabled))
-        return (gateway_url() + ctx.rstrip("/") + PROVIDERS[route["defaultProvider"]]["messagesSuffix"],
+            return None, "route needs %s, which is disabled" % " and ".join(map(str, disabled))
+        return (gateway_url() + own_path(ctx.rstrip("/")) + PROVIDERS[route["defaultProvider"]]["messagesSuffix"],
                 "showcases.json route")
 
     # An MCP card's url is its MCP proxy's endpoint. Its model is
@@ -618,10 +626,10 @@ def resolve_gateway(entry, provider_id=DEFAULT_PROVIDER_ID):
             return None, "mcp.context %r is not a plain path" % ctx
         provider = mcp.get("provider")
         if provider not in PROVIDERS:
-            return None, "mcp needs %s, disabled in providers.json" % provider
+            return None, "mcp needs %s, which is disabled" % provider
         if PROVIDERS[provider]["wire"] != "openai":
             return None, "mcp.provider %s must speak the OpenAI format" % provider
-        return gateway_url(entry) + ctx.rstrip("/") + "/mcp", "showcases.json mcp"
+        return gateway_url(entry) + own_path(ctx.rstrip("/")) + "/mcp", "showcases.json mcp"
 
     # An A2A card's url is its agent's base on the A2A gateway (a2a/): the app
     # reads the agent card there, and sends to the address the card gives
@@ -631,11 +639,11 @@ def resolve_gateway(entry, provider_id=DEFAULT_PROVIDER_ID):
         ctx = a2a.get("context") or ""
         if not CONTEXT_RE.match(ctx):
             return None, "a2a.context %r is not a plain path" % ctx
-        return A2A_GATEWAY.url + ctx.rstrip("/"), "showcases.json a2a"
+        return A2A_GATEWAY.url + own_path(ctx.rstrip("/")), "showcases.json a2a"
 
     # The context for any (showcase, provider) pair is always exactly
-    # /<providerId>-<contextSuffix>, or bare /<providerId> when contextSuffix
-    # is empty -- scripts/python/provision_showcases.py builds the gateway's own
+    # /<business>/<providerId>-<contextSuffix>, or /<business>/<providerId>
+    # when contextSuffix is empty -- scripts/python/provision_showcases.py builds the gateway's own
     # lane contexts with this identical formula (see its build_lanes()). A
     # showcase with no contextSuffix at all is simply unwired, for any
     # provider including the default one: there is no other fallback.
@@ -647,7 +655,7 @@ def resolve_gateway(entry, provider_id=DEFAULT_PROVIDER_ID):
     ctx = f"/{provider_id}-{context_suffix}" if context_suffix else f"/{provider_id}"
     if not CONTEXT_RE.match(ctx):
         return None, "computed context %r is not a plain path" % ctx
-    return gateway_url() + ctx.rstrip("/") + suffix, "showcases.json contextSuffix"
+    return gateway_url() + own_path(ctx.rstrip("/")) + suffix, "showcases.json contextSuffix"
 
 
 def showcase_context(url, provider_id=DEFAULT_PROVIDER_ID, entry=None):
@@ -715,7 +723,7 @@ def a2a_base(entry, showcase, choice):
     plain = entry["a2a"].get("plainContext")
     selector = entry.get("selector")
     if plain and selector and choice in (None, selector["values"][0]):
-        return A2A_GATEWAY.url + plain
+        return A2A_GATEWAY.url + own_path(plain)
     return showcase["url"]
 
 
@@ -733,9 +741,10 @@ def resolve_showcase(showcase_id, provider_id=DEFAULT_PROVIDER_ID):
     # A routed or MCP card (see resolve_gateway) speaks its own provider's
     # wire format and default model, and its env vars carry the default
     # provider's (unsuffixed) names, since it belongs to no single provider.
+    # So does an A2A card: its agent has one key, whatever the provider.
     mcp = entry.get("mcp")
     own_provider = (entry.get("route") or {}).get("defaultProvider") or (mcp or {}).get("provider")
-    conf_provider = DEFAULT_PROVIDER_ID if own_provider else provider_id
+    conf_provider = DEFAULT_PROVIDER_ID if own_provider or entry.get("a2a") else provider_id
     wire_provider = own_provider if own_provider and url else provider_id
 
     fallback_model = default_model(wire_provider)
@@ -1092,7 +1101,7 @@ class Handler(BaseHTTPRequestHandler):
                 "tlsVerify": _truthy(CONF["TLS_VERIFY"]),
                 "gatewayApiKeySet": bool(CONF["GATEWAY_API_KEY"]) or any(
                 resolve_showcase(s, provider_id)["apiKey"] for s in _REGISTRY["by_id"]),
-                "brand": CONF["BRAND_NAME"],
+                "brand": brand(),
                 "catalogue": bool(load_plans()),
                 "registry": {"file": os.path.basename(SHOWCASES_FILE),
                              "count": len(registry["list"]),
@@ -1114,9 +1123,13 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/config":
             # No model list: the gateway decides which model answers, and the
             # page reads that decision back off the response instead.
+            assistant = vertical()["assistant"]
             return self._json(200, {
                 "defaultModel": default_model(provider_id),
-                "brand": CONF["BRAND_NAME"],
+                "brand": brand(),
+                "intro": assistant["intro"],
+                "placeholder": assistant["placeholder"],
+                "theme": vertical().get("theme") or {},
                 "launcher": launcher_links()})
         if path == "/api/mcp/tools":
             return self._mcp_tools((query.get("showcase") or [""])[0])
@@ -1188,7 +1201,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             # As any MCP client: call the proxy, follow its 401.
             session = {}
-            self._mcp_rpc(gateway_url(entry) + entry["mcp"]["context"].rstrip("/") + "/mcp", "tools/list", {}, session)
+            self._mcp_rpc(gateway_url(entry) + own_path(entry["mcp"]["context"].rstrip("/")) + "/mcp", "tools/list", {},
+                          session)
             prm = protected_resource_metadata((session.get("headers") or {}).get("www-authenticate"))
             meta = mcp_authorization_server(prm)
         except (urllib.error.URLError, ValueError, KeyError) as exc:
@@ -1231,7 +1245,7 @@ class Handler(BaseHTTPRequestHandler):
             item["gatewayContext"] = showcase_context(url, provider_id, entry)
             item["unwiredReason"] = None if url else source
             out.append(item)
-        return {"brand": CONF["BRAND_NAME"],
+        return {"brand": brand(),
                 "provider": provider_id,
                 "defaultShowcase": registry["default_id"],
                 "registry": {"error": registry["error"]},
@@ -1337,7 +1351,8 @@ class Handler(BaseHTTPRequestHandler):
 
         showcase = resolve_showcase(showcase_id, provider_id)
         entry = registry["by_id"][showcase_id]
-        if payload.get("plain") is True and not entry.get("mcp") and not entry.get("a2a") \
+        payload_plain = payload.get("plain")
+        if payload_plain is True and not entry.get("mcp") and not entry.get("a2a") \
                 and policy_comparison_enabled():
             showcase = without_policies(showcase, entry, provider_id)
         if not showcase["url"]:
@@ -1413,6 +1428,14 @@ class Handler(BaseHTTPRequestHandler):
             elif outcome == "policy_block":
                 payload["error"] = ("a gateway policy blocked this request "
                                     "before any model was called")
+            # The gateway sets a meaning-based policy up with the embeddings
+            # model. When that model does not answer, it leaves the policy out
+            # and answers this bare 500: say why.
+            elif (exc.code == 500 and "Internal Server Error" in body and payload_plain is not True
+                  and any(name.startswith("semantic-") for name in entry.get("policies") or [])):
+                payload["error"] = ("the gateway could not set this card's policy up: the embeddings model it "
+                                    "needs (EMBEDDING_PROVIDER in demo.env) did not answer. Restart the gateway "
+                                    "once that model answers again.")
             # A policy refusing on purpose is not a fault. 422 says "the
             # content was rejected" without the alarm of a 502, and the client
             # still branches on gatewayStatus, so a 422 carrying 429 renders
@@ -1602,6 +1625,12 @@ class Handler(BaseHTTPRequestHandler):
                                     "gatewayOutcome": "error", "showcase": showcase["id"],
                                     "gatewayBody": json.dumps(card)[:4000]})
 
+        # On a card that compares the partner's own card with the one the
+        # gateway vetted: which one the assistant read this turn.
+        which = None
+        if entry["a2a"].get("managedCard") and entry["a2a"].get("plainContext"):
+            which = "own" if base != showcase["url"] else "vetted"
+
         # A card whose assistant reads the agent card before it writes, as an
         # orchestrating agent does: it may ask the customer first instead.
         text, decision = messages[-1]["content"], None
@@ -1609,15 +1638,19 @@ class Handler(BaseHTTPRequestHandler):
             read = self._a2a_read_card(card, messages, entry)
             if isinstance(read, tuple) and read[0] == "customer":
                 self._begin_sse()
-                self._sse("agent_card", {"name": card.get("name"), "binding": "JSON-RPC", "url": endpoint,
-                                         "decision": "The assistant read this card and asked the customer first. "
-                                                     "The agent was not called."})
+                self._sse("agent_card", {"name": card.get("name"), "binding": "JSON-RPC", "url": endpoint, "card": which,
+                                         "decision": ("The assistant followed the instruction hidden in the partner's "
+                                                      "card and asked the customer first. " if which == "own" else
+                                                      "The assistant read this card and asked the customer first. ")
+                                                     + "The agent was not called."})
                 self._emit_openai({"model": "assistant (read the agent card)",
                                    "choices": [{"message": {"content": read[1]}, "finish_reason": "stop"}]})
                 return
             if not isinstance(read, tuple):
                 return read
-            text, decision = read[1], "The assistant read this card and sent the agent: " + read[1]
+            text, decision = read[1], ("The assistant read the partner's card, hidden instruction included, and "
+                                       "sent the agent: " if which == "own" else
+                                       "The assistant read this card and sent the agent: ") + read[1]
         message = {"messageId": str(uuid.uuid4()), "role": "ROLE_USER",
                    "parts": [{"text": text}]}
         if conversation:
@@ -1667,7 +1700,7 @@ class Handler(BaseHTTPRequestHandler):
         text = "".join(part.get("text", "") for part in answer.get("parts") or [])
 
         self._begin_sse()
-        self._sse("agent_card", {"name": card.get("name"), "binding": "JSON-RPC", "url": endpoint,
+        self._sse("agent_card", {"name": card.get("name"), "binding": "JSON-RPC", "url": endpoint, "card": which,
                                  "decision": decision})
         self._sse("gateway_meta", gateway_meta(headers, streamed=False))
         self._emit_openai({"model": card.get("name"), "choices": [{"message": {"content": text},
@@ -2093,7 +2126,7 @@ def main():
 
     registry = load_showcases()
 
-    print("%s%s AI assistant%s" % (BOLD, CONF["BRAND_NAME"], RESET))
+    print("%s%s AI assistant%s" % (BOLD, brand(), RESET))
     print("  base     %s" % LLM_GATEWAY.url)
     if MCP_GATEWAY.url != LLM_GATEWAY.url:
         print("  mcp base %s" % MCP_GATEWAY.url)
@@ -2102,7 +2135,7 @@ def main():
              registry["default_id"]))
     if registry["error"]:
         print("  %swarn%s     %s" % (YELLOW, RESET, registry["error"]))
-    print("  catalog  %s" % ("%s (%d chars)" % (CONF["PLANS_FILE"], len(load_plans()))
+    print("  catalog  %s" % ("%s (%d chars)" % (os.path.relpath(catalogue_path(), ROOT), len(load_plans()))
                               if load_plans() else "none - the assistant will not quote prices"))
     print("  model    %s  (max_tokens %s)" % (default_model(), CONF["MAX_TOKENS"]))
     print("           %sa default only - the gateway's routers decide which "
