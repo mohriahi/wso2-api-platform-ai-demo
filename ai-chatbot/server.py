@@ -437,7 +437,7 @@ def load_showcases():
             problems.append(reason)
             continue
         seen.add(entry["id"])
-        if entry["id"] in disabled:
+        if entry["id"] in disabled or entry.get("enabled") is False:
             entry = dict(entry, status="disabled", blockedBy=[DISABLED_REASON])
         good.append(entry)
 
@@ -451,9 +451,10 @@ def load_showcases():
     return _REGISTRY
 
 
-# Cards listed in DISABLED_CARDS (demo.env) stay on the home screen, greyed
-# out and not clickable, with this reason -- for a card whose outside service
-# is down during a live demo.
+# Cards listed in DISABLED_CARDS (demo.env), or set "enabled": false in
+# showcases.json, stay on the home screen, greyed out and not clickable, with
+# this reason: for a card whose outside service is down during a live demo, or
+# one left out of the demo.
 DISABLED_REASON = "Not available in this demo"
 
 

@@ -947,10 +947,15 @@
   },
   {
     "id": "ai-content-mark",
+    "enabled": false,
     "group": "Compliance (EU AI Act)",
     "contextSuffix": "ai-mark",
     "title": "AI-generated mark",
-    "tagline": "Every answer carries a mark software can read, x-ai-generated: true, added by the gateway for every app.",
+    "tagline": "Every answer carries a mark software can read, x-ai-generated: true, added by the gateway for every app and every provider.",
+    "warning": {
+      "title": "Superficial compliance only",
+      "text": "A header is not the marking Art. 50(2) asks for. The Act expects a mark inside the content itself, a watermark or signed metadata, that stays with the text and that software can detect. A header is lost as soon as the text is copied, and anyone can remove it or add it. The real mark comes from the model provider: Anthropic embeds an invisible watermark in the text Claude writes. Show this card as a signal for your own apps, never as compliance."
+    },
     "capability": "set-headers v1.2.0",
     "status": "ready",
     "blockedBy": [],
@@ -977,11 +982,11 @@
         "notes": "For contrast, ask the same question on Just chat: no such header."
       }
     ],
-    "notes": "set-headers v1.2.0 on the response adds x-ai-generated: true to every answer of this lane. Art. 50(2) asks that generated content be marked in a machine-readable way; the techniques expected are still being set out by the Commission, so this shows one way, not the official one.",
+    "notes": "set-headers v1.2.0 on the response adds x-ai-generated: true to every answer of this lane. Art. 50(2) asks that generated content be marked in a machine-readable way, and the model provider does that in the content itself: Anthropic, which signed the Art. 50(2) Code of Practice, embeds an invisible watermark in generated text and Content Credentials (C2PA) in files (support.claude.com, How Claude marks AI-generated content). A header does not travel with the text once copied, so this card complements the provider's mark: one signal for the apps, the same whatever the provider behind, including one that does not mark yet. Text the gateway itself adds to an answer does not carry the provider's watermark.",
     "refs": {
       "Compliance (EU AI Act)": {
         "code": "Art. 50(2)",
-        "text": "Marking: every answer is labelled as AI-generated in a form software can read, whatever app shows it.",
+        "text": "Marking: a header alone is superficial compliance. The mark the Act expects is inside the content, and the model provider puts it there (Anthropic embeds an invisible watermark); the gateway only adds a label your apps can read, the same for every provider.",
         "order": 6
       }
     }
@@ -1039,6 +1044,10 @@
     "contextSuffix": "audit-log",
     "title": "Audit log",
     "tagline": "What an audit record holds: each question and answer, with its time and lane, and never the credentials.",
+    "about": {
+      "how": "Without this policy, the gateway already keeps a trace of every call: its access log and its analytics say who called which card, when, with which model, how many tokens and at what cost. What they never hold is what was said. This policy adds it: each question and each answer, without the API key or any other credential.",
+      "setup": "Each exchange is written to the gateway's log; ./scripts/audit-log.sh shows it. That is what lets you reconstruct an incident, such as what the model actually told a customer. A log of conversations also holds personal data under the GDPR: in production, keep it apart from the traffic, limit who can read it and for how long, or mask personal data before it is written."
+    },
     "capability": "log-message v1.0.3",
     "status": "ready",
     "blockedBy": [],

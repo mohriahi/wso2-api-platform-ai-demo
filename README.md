@@ -61,7 +61,7 @@ wso2-api-platform-ai-demo/
 | Prompt injection guardrails | The request is refused before any model is called: a pattern catches the obvious attempts, a meaning-based guard catches rewordings and other languages |
 | Topic guardrail | The assistant only answers about mobile plans: an essay or a piece of code is refused before the model is called |
 | Prompt decoration | The gateway adds an instruction to every request: each answer ends by saying it was written by an AI, as the EU AI Act asks, without the app doing anything |
-| AI-generated mark | Every answer carries a header software can read, `x-ai-generated: true`, added by the gateway |
+| AI-generated mark | Every answer carries a header software can read, `x-ai-generated: true`, added by the gateway whatever the provider. Superficial compliance only: the marking the EU AI Act expects is inside the text, put there by the model provider (an invisible watermark, for Anthropic) |
 | Stop button | The operator pauses the assistant at the gateway: apps get a safe message, no model is called |
 | Audit log | Every question and answer is recorded by the gateway, without the credentials; `./scripts/audit-log.sh` shows the record |
 | PII masking | Personal data is swapped out before the request leaves the gateway |

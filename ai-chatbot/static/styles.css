@@ -1092,6 +1092,8 @@ body[data-rail="none"] .workspace > .shell { grid-template-columns: minmax(0, va
   font-size: 14px;
 }
 .card-warning[hidden], .card-about[hidden] { display: none; }
+/* Once the conversation has started, they make room for it. */
+.scroll:has(.msg) .card-warning, .scroll:has(.msg) .card-about { display: none; }
 .card-warning {
   background: color-mix(in srgb, var(--warn) 16%, transparent);
   border-left: 4px solid var(--warn);
