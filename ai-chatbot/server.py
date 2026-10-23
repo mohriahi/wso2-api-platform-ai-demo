@@ -88,6 +88,20 @@ def _load_providers():
 
 PROVIDERS = _load_providers()
 DEFAULT_PROVIDER_ID = next(iter(PROVIDERS))  # first entry in providers.json
+
+
+def _model_prices():
+    """The per-token price of each model the providers use, from the file the
+    gateway charges with (llm-cost): what the cost meter multiplies tokens by."""
+    path = os.path.join(os.path.dirname(HERE), "ai-gateway", "configs", "llm-pricing", "model_prices.json")
+    with open(path) as handle:
+        table = json.load(handle)
+    return {model: {"input": table[model]["input_cost_per_token"], "output": table[model]["output_cost_per_token"]}
+            for provider in PROVIDERS.values() for model in provider["models"].values()
+            if "input_cost_per_token" in table.get(model, {})}
+
+
+MODEL_PRICES = _model_prices()
 PROVIDER_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,31}$")
 
 
@@ -431,6 +445,8 @@ def load_showcases():
             continue
         if entry.get("enabled") is False:
             continue
+        if isinstance(entry.get("budget"), dict):
+            entry = dict(entry, budget=dict(entry["budget"], prices=MODEL_PRICES))
         if entry["id"] in disabled:
             entry = dict(entry, status="disabled", blockedBy=[DISABLED_REASON])
         if hidden_groups:

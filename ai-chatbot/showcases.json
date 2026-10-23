@@ -216,33 +216,7 @@
       "budget": {
         "modelRole": "large",
         "fallbackModelRole": "small",
-        "duration": "5m",
-        "prices": {
-          "claude-opus-4-6": {
-            "input": 5e-06,
-            "output": 2.5e-05
-          },
-          "claude-haiku-4-5": {
-            "input": 1e-06,
-            "output": 5e-06
-          },
-          "ministral-14b-latest": {
-            "input": 2e-07,
-            "output": 2e-07
-          },
-          "ministral-8b-latest": {
-            "input": 1.5e-07,
-            "output": 1.5e-07
-          },
-          "gemini-3.1-pro-preview": {
-            "input": 2e-06,
-            "output": 1.2e-05
-          },
-          "gemini-2.5-flash": {
-            "input": 3e-07,
-            "output": 2.5e-06
-          }
-        }
+        "duration": "5m"
       },
       "overrides": {
         "model": "large"
