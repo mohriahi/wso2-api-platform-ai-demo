@@ -3195,12 +3195,12 @@
       "id": "a2a-card-control",
       "group": "agent-governance",
       "a2a": {
-        "agent": "Globetrotter Travel Agent",
+        "agent": "Travel Agent",
         "context": "/globetrotter-agent",
         "upstream": "http://globetrotter-agent:8000",
         "policies": [],
         "managedCard": {
-          "name": "Globetrotter Travel Agent",
+          "name": "Travel Agent",
           "description": "Recommends roaming add-ons for a trip.",
           "version": "1.0.0",
           "capabilities": {
@@ -3253,7 +3253,7 @@
           "n": 1,
           "title": "The partner's own card",
           "operator": {
-            "text": "Set Agent card to partner's own, above the conversation. Click Agent: Globetrotter Travel Agent at the top: the end of its description is an instruction for the assistant."
+            "text": "Set Agent card to partner's own, above the conversation. Click Agent: Travel Agent at the top: the end of its description is an instruction for the assistant."
           },
           "sends": [
             {
