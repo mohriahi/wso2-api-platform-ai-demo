@@ -2640,6 +2640,86 @@
       }
     },
     {
+      "id": "mcp-audit-log",
+      "group": "tool-governance",
+      "title": "Tool audit log",
+      "tagline": "Every tool the agent calls, with what it sent and what came back, is recorded by the gateway.",
+      "capability": "log-message v1.0.3",
+      "status": "ready",
+      "blockedBy": [],
+      "policies": [
+        "log-message v1.0.3"
+      ],
+      "mcp": {
+        "server": "Acme",
+        "context": "/acme-mcp-audit",
+        "upstream": "http://mcp-acme-mobile:8000/mcp",
+        "provider": "mistral",
+        "policies": [
+          {
+            "name": "log-message",
+            "version": "v1",
+            "params": {
+              "request": {
+                "payload": true,
+                "headers": true,
+                "excludeHeaders": [
+                  "x-api-key",
+                  "authorization",
+                  "cookie"
+                ]
+              },
+              "response": {
+                "payload": true
+              }
+            }
+          }
+        ]
+      },
+      "intro": {
+        "chips": []
+      },
+      "steps": [
+        {
+          "n": 1,
+          "title": "The agent uses the tools",
+          "sends": [
+            {
+              "ask": "What plan am I on, and how much data have I used?",
+              "expect": {
+                "text": "The agent reads the account through the gateway."
+              }
+            },
+            {
+              "ask": "Switch me to the Plus plan.",
+              "expect": {
+                "text": "The agent changes the plan through the gateway."
+              }
+            }
+          ]
+        },
+        {
+          "n": 2,
+          "title": "Read the record",
+          "operator": {
+            "text": "In a terminal: every tool call, with its arguments and its result, and never the credentials.",
+            "command": "./scripts/audit-log.sh"
+          },
+          "sends": []
+        }
+      ],
+      "notes": "log-message v1.0.3 on the MCP proxy, request and response payloads, minus x-api-key, authorization and cookie headers. scripts/audit-log.sh reads the gateway runtime's log back. In production, keep the record apart from the traffic, with retention and access control, and mask personal data first.",
+      "gateway": {
+        "stream": false
+      },
+      "emphasis": [
+        "latency"
+      ],
+      "overrides": {
+        "model": "large"
+      }
+    },
+    {
       "id": "mcp-tool-rewrite",
       "group": "tool-governance",
       "mcp": {
@@ -3272,6 +3352,82 @@
           "message": "the gateway refused this message: this agent takes 3 messages a minute"
         }
       }
+    },
+    {
+      "id": "a2a-audit-log",
+      "group": "agent-governance",
+      "title": "Agent audit log",
+      "tagline": "Every message between the two agents is recorded by the gateway.",
+      "capability": "log-message v1.0.3",
+      "status": "ready",
+      "blockedBy": [],
+      "policies": [
+        "log-message v1.0.3"
+      ],
+      "a2a": {
+        "agent": "Acme Roaming Agent",
+        "context": "/acme-roaming-audit",
+        "upstream": "http://acme-roaming:8000",
+        "policies": [
+          {
+            "name": "log-message",
+            "version": "v1",
+            "params": {
+              "request": {
+                "payload": true,
+                "headers": true,
+                "excludeHeaders": [
+                  "x-api-key",
+                  "authorization",
+                  "cookie"
+                ]
+              },
+              "response": {
+                "payload": true
+              }
+            }
+          }
+        ]
+      },
+      "intro": {
+        "chips": []
+      },
+      "steps": [
+        {
+          "n": 1,
+          "title": "Two questions to the agent",
+          "sends": [
+            {
+              "ask": "I'm going to Spain in May. Will my phone work there?",
+              "expect": {
+                "text": "The roaming agent answers through the gateway."
+              }
+            },
+            {
+              "ask": "And if I go to Japan?",
+              "expect": {
+                "text": "Answered too."
+              }
+            }
+          ]
+        },
+        {
+          "n": 2,
+          "title": "Read the record",
+          "operator": {
+            "text": "In a terminal: each message sent to the agent and each answer, with its time.",
+            "command": "./scripts/audit-log.sh"
+          },
+          "sends": []
+        }
+      ],
+      "notes": "log-message v1.0.3 on every A2A operation of the agent proxy, request and response payloads, minus the credentials. scripts/audit-log.sh reads the A2A gateway's log too when A2A_ENABLED is on.",
+      "gateway": {
+        "stream": false
+      },
+      "emphasis": [
+        "latency"
+      ]
     },
     {
       "id": "a2a-agent",
