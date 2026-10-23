@@ -5,8 +5,8 @@
 # gateway-runtime, which calls them, and with AI Workspace's platform-api, which
 # fetches their tools when a proxy is created. No host port.
 #
-# Their tools and data come with the business the demo plays (DEMO_VERTICAL):
-# the business's own server, and a partner's.
+# Each serves every business, at /<business>/mcp: the business's own server,
+# and a partner's.
 x-mcp-server: &mcp-server
   image: python:3.12-alpine
   command: ["python", "-u", "/app/server.py"]
@@ -22,7 +22,6 @@ services:
   mcp-acme:
     <<: *mcp-server
     environment:
-      - VERTICAL=${DEMO_VERTICAL:-telco}
       - TOOLSET=core
 
   # A partner's server: a tool description and a tool result hide an
@@ -30,7 +29,6 @@ services:
   mcp-partner:
     <<: *mcp-server
     environment:
-      - VERTICAL=${DEMO_VERTICAL:-telco}
       - TOOLSET=partner
 
 networks:

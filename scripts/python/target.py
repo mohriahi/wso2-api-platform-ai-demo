@@ -51,7 +51,6 @@ def _raw(name: str) -> str:
 # existing deployment, so this machine's stack never picks them up.
 _LEGACY_NAMES = {
     "REMOTE_AI_WORKSPACE_URL": ("AIW_URL",),
-    "REMOTE_PROJECT_ID": ("DEMO_PROJECT_ID",),
     "REMOTE_ADMIN_USERNAME": ("ADMIN_USERNAME",),
     "REMOTE_ADMIN_PASSWORD": ("ADMIN_PASSWORD",),
     "REMOTE_GATEWAY_ID": ("GATEWAY_ID",),
@@ -105,7 +104,6 @@ if REMOTE != bool(_remote_llm):
 
 if REMOTE:
     WORKSPACE_URL = setting("REMOTE_AI_WORKSPACE_URL").rstrip("/")
-    PROJECT_ID = setting("REMOTE_PROJECT_ID", "default")
     ADMIN_USERNAME = setting("REMOTE_ADMIN_USERNAME", "admin")
     # Never in demo.env: the environment only (ADMIN_PASSWORD with the old names).
     ADMIN_PASSWORD = os.environ.get("REMOTE_ADMIN_PASSWORD") or \
@@ -114,7 +112,6 @@ if REMOTE:
 else:
     _ports = gateway_ports()
     WORKSPACE_URL = f"https://localhost:{DEMO_ENV['AI_WORKSPACE_PORT']}"
-    PROJECT_ID = "default"
     ADMIN_USERNAME = "admin"
     ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin")  # the one generate-local-certs.sh hashed
     LLM_GATEWAY = Gateway("local-gateway", f"https://localhost:{_ports['GATEWAY_HTTPS_PORT']}",

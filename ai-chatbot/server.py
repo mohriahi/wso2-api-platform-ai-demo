@@ -49,7 +49,7 @@ STATIC = os.path.join(HERE, "static")
 sys.path.insert(0, os.path.join(HERE, "..", "scripts", "python"))
 from gateway_settings import missing_gateway_settings  # noqa: E402
 from target import A2A_ENABLED, A2A_GATEWAY, LLM_GATEWAY, MCP_GATEWAY, ROOT, read_env_file, setting  # noqa: E402
-from vertical import catalogue_path, for_business, vertical  # noqa: E402
+from vertical import VERTICAL_ID, catalogue_path, for_business, own_path, vertical  # noqa: E402
 
 # The showcase registry. Deliberately NOT under static/ -- _serve_static would
 # hand the whole file, gateway wiring included, to any GET.
@@ -550,6 +550,9 @@ def _env_key(showcase_id, field, provider_id=DEFAULT_PROVIDER_ID):
     agree, since that script is what writes these vars. The default provider
     gets no segment, so every existing config.env keeps working untouched."""
     key = "SHOWCASE_%s" % showcase_id.upper().replace("-", "_")
+    # Each business has its own keys (see the provisioning's env_key).
+    if field == "API_KEY":
+        key = "SHOWCASE_%s_%s" % (VERTICAL_ID.upper(), key[len("SHOWCASE_"):])
     if provider_id != DEFAULT_PROVIDER_ID:
         key += "_" + provider_id.upper()
     return "%s_%s" % (key, field)
@@ -607,7 +610,7 @@ def resolve_gateway(entry, provider_id=DEFAULT_PROVIDER_ID):
         disabled = [p for p in (route.get("defaultProvider"), route.get("routedProvider")) if p not in PROVIDERS]
         if disabled:
             return None, "route needs %s, disabled in providers.json" % " and ".join(map(str, disabled))
-        return (gateway_url() + ctx.rstrip("/") + PROVIDERS[route["defaultProvider"]]["messagesSuffix"],
+        return (gateway_url() + own_path(ctx.rstrip("/")) + PROVIDERS[route["defaultProvider"]]["messagesSuffix"],
                 "showcases.json route")
 
     # An MCP card's url is its MCP proxy's endpoint. Its model is
@@ -623,7 +626,7 @@ def resolve_gateway(entry, provider_id=DEFAULT_PROVIDER_ID):
             return None, "mcp needs %s, disabled in providers.json" % provider
         if PROVIDERS[provider]["wire"] != "openai":
             return None, "mcp.provider %s must speak the OpenAI format" % provider
-        return gateway_url(entry) + ctx.rstrip("/") + "/mcp", "showcases.json mcp"
+        return gateway_url(entry) + own_path(ctx.rstrip("/")) + "/mcp", "showcases.json mcp"
 
     # An A2A card's url is its agent's base on the A2A gateway (a2a/): the app
     # reads the agent card there, and sends to the address the card gives
@@ -633,11 +636,11 @@ def resolve_gateway(entry, provider_id=DEFAULT_PROVIDER_ID):
         ctx = a2a.get("context") or ""
         if not CONTEXT_RE.match(ctx):
             return None, "a2a.context %r is not a plain path" % ctx
-        return A2A_GATEWAY.url + ctx.rstrip("/"), "showcases.json a2a"
+        return A2A_GATEWAY.url + own_path(ctx.rstrip("/")), "showcases.json a2a"
 
     # The context for any (showcase, provider) pair is always exactly
-    # /<providerId>-<contextSuffix>, or bare /<providerId> when contextSuffix
-    # is empty -- scripts/python/provision_showcases.py builds the gateway's own
+    # /<business>/<providerId>-<contextSuffix>, or /<business>/<providerId>
+    # when contextSuffix is empty -- scripts/python/provision_showcases.py builds the gateway's own
     # lane contexts with this identical formula (see its build_lanes()). A
     # showcase with no contextSuffix at all is simply unwired, for any
     # provider including the default one: there is no other fallback.
@@ -649,7 +652,7 @@ def resolve_gateway(entry, provider_id=DEFAULT_PROVIDER_ID):
     ctx = f"/{provider_id}-{context_suffix}" if context_suffix else f"/{provider_id}"
     if not CONTEXT_RE.match(ctx):
         return None, "computed context %r is not a plain path" % ctx
-    return gateway_url() + ctx.rstrip("/") + suffix, "showcases.json contextSuffix"
+    return gateway_url() + own_path(ctx.rstrip("/")) + suffix, "showcases.json contextSuffix"
 
 
 def showcase_context(url, provider_id=DEFAULT_PROVIDER_ID, entry=None):
@@ -717,7 +720,7 @@ def a2a_base(entry, showcase, choice):
     plain = entry["a2a"].get("plainContext")
     selector = entry.get("selector")
     if plain and selector and choice in (None, selector["values"][0]):
-        return A2A_GATEWAY.url + plain
+        return A2A_GATEWAY.url + own_path(plain)
     return showcase["url"]
 
 
@@ -1195,7 +1198,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             # As any MCP client: call the proxy, follow its 401.
             session = {}
-            self._mcp_rpc(gateway_url(entry) + entry["mcp"]["context"].rstrip("/") + "/mcp", "tools/list", {}, session)
+            self._mcp_rpc(gateway_url(entry) + own_path(entry["mcp"]["context"].rstrip("/")) + "/mcp", "tools/list", {},
+                          session)
             prm = protected_resource_metadata((session.get("headers") or {}).get("www-authenticate"))
             meta = mcp_authorization_server(prm)
         except (urllib.error.URLError, ValueError, KeyError) as exc:

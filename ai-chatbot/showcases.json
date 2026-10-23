@@ -2062,7 +2062,7 @@
       "mcp": {
         "server": "Acme",
         "context": "/acme-mcp-auth",
-        "upstream": "http://mcp-acme:8000/mcp",
+        "upstream": "http://mcp-acme:8000/{v:id}/mcp",
         "provider": "mistral",
         "policies": [
           {
@@ -2168,7 +2168,7 @@
       "mcp": {
         "server": "Acme",
         "context": "/acme-mcp-authz",
-        "upstream": "http://mcp-acme:8000/mcp",
+        "upstream": "http://mcp-acme:8000/{v:id}/mcp",
         "provider": "mistral",
         "policies": [
           {
@@ -2303,7 +2303,7 @@
       "mcp": {
         "server": "Acme",
         "context": "/acme-mcp-acl",
-        "upstream": "http://mcp-acme:8000/mcp",
+        "upstream": "http://mcp-acme:8000/{v:id}/mcp",
         "provider": "mistral",
         "policies": [
           {
@@ -2394,7 +2394,7 @@
       "mcp": {
         "server": "Acme",
         "context": "/acme-mcp-args",
-        "upstream": "http://mcp-acme:8000/mcp",
+        "upstream": "http://mcp-acme:8000/{v:id}/mcp",
         "provider": "mistral",
         "policies": [
           {
@@ -2488,7 +2488,7 @@
       "mcp": {
         "server": "Acme",
         "context": "/acme-mcp-ratelimit",
-        "upstream": "http://mcp-acme:8000/mcp",
+        "upstream": "http://mcp-acme:8000/{v:id}/mcp",
         "provider": "mistral",
         "policies": [
           {
@@ -2606,7 +2606,7 @@
       "mcp": {
         "server": "Acme",
         "context": "/acme-mcp-audit",
-        "upstream": "http://mcp-acme:8000/mcp",
+        "upstream": "http://mcp-acme:8000/{v:id}/mcp",
         "provider": "mistral",
         "policies": [
           {
@@ -2678,7 +2678,7 @@
       "mcp": {
         "server": "Acme",
         "context": "/acme-mcp-rewrite",
-        "upstream": "http://mcp-acme:8000/mcp",
+        "upstream": "http://mcp-acme:8000/{v:id}/mcp",
         "provider": "mistral",
         "policies": [
           {
@@ -2777,7 +2777,7 @@
       "mcp": {
         "server": "{v:mcp.partner.name}",
         "context": "/partner-mcp",
-        "upstream": "http://mcp-partner:8000/mcp",
+        "upstream": "http://mcp-partner:8000/{v:id}/mcp",
         "provider": "mistral",
         "policies": [
           {
@@ -2865,7 +2865,7 @@
       "mcp": {
         "server": "{v:mcp.partner.name}",
         "context": "/partner-mcp-jev",
-        "upstream": "http://mcp-partner:8000/mcp",
+        "upstream": "http://mcp-partner:8000/{v:id}/mcp",
         "provider": "mistral",
         "policies": [
           {
@@ -2969,7 +2969,7 @@
       "mcp": {
         "server": "Acme",
         "context": "/acme-mcp-jev",
-        "upstream": "http://mcp-acme:8000/mcp",
+        "upstream": "http://mcp-acme:8000/{v:id}/mcp",
         "provider": "mistral",
         "policies": [
           {
@@ -3083,7 +3083,7 @@
       "mcp": {
         "server": "Acme",
         "context": "/acme-mcp",
-        "upstream": "http://mcp-acme:8000/mcp",
+        "upstream": "http://mcp-acme:8000/{v:id}/mcp",
         "provider": "mistral",
         "policies": []
       },
@@ -3150,7 +3150,7 @@
       "a2a": {
         "agent": "{v:a2a.partner.name}",
         "context": "/partner-agent",
-        "upstream": "http://partner-agent:8000",
+        "upstream": "http://partner-agent:8000/{v:id}",
         "policies": [],
         "managedCard": {
           "name": "{v:a2a.partner.name}",
@@ -3242,7 +3242,7 @@
       "a2a": {
         "agent": "{v:a2a.agent.name}",
         "context": "/acme-agent-auth",
-        "upstream": "http://acme-agent:8000",
+        "upstream": "http://acme-agent:8000/{v:id}",
         "policies": [
           {
             "name": "api-key-auth",
@@ -3323,7 +3323,7 @@
       "a2a": {
         "agent": "{v:a2a.agent.name}",
         "context": "/acme-agent-guard",
-        "upstream": "http://acme-agent:8000",
+        "upstream": "http://acme-agent:8000/{v:id}",
         "policies": [
           {
             "name": "regex-guardrail",
@@ -3393,7 +3393,7 @@
       "a2a": {
         "agent": "{v:a2a.agent.name}",
         "context": "/acme-agent-limit",
-        "upstream": "http://acme-agent:8000",
+        "upstream": "http://acme-agent:8000/{v:id}",
         "policies": [],
         "operations": [
           {
@@ -3493,7 +3493,7 @@
       "a2a": {
         "agent": "{v:a2a.agent.name}",
         "context": "/acme-agent-audit",
-        "upstream": "http://acme-agent:8000",
+        "upstream": "http://acme-agent:8000/{v:id}",
         "policies": [
           {
             "name": "log-message",
@@ -3561,7 +3561,7 @@
       "a2a": {
         "agent": "{v:a2a.agent.name}",
         "context": "/acme-agent",
-        "upstream": "http://acme-agent:8000",
+        "upstream": "http://acme-agent:8000/{v:id}",
         "policies": []
       },
       "title": "Agent behind the gateway",

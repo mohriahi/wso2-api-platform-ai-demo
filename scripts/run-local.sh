@@ -9,7 +9,7 @@
 #   3. Start AI Workspace (the control plane).
 #   4. Start the AI Gateway (the data plane).
 #   5. Start the chatbot.
-#   6. Set the gateway up again if the business (DEMO_VERTICAL) changed.
+#   6. Set the gateway up for the business (DEMO_VERTICAL), the first time only.
 #
 # Needs api-platform.env in ai-workspace/ and ai-gateway/ (reset-and-setup.sh
 # creates them from their .example) and ai-chatbot/config.env.
@@ -48,8 +48,7 @@ docker network inspect "$DEMO_NAME-mcp" >/dev/null 2>&1 || docker network create
 # (A2A_ENABLED in demo.env).
 if [[ "${A2A_ENABLED:-false}" == true ]]; then
   "$ROOT/scripts/a2a-compose.sh" up -d --build --remove-orphans >"$LOGS/a2a.log" 2>&1
-  # The agents are restarted on every run too, so they speak for the
-  # current business.
+  # The agents are restarted on every run too, so an edit to verticals/ shows.
   "$ROOT/scripts/a2a-compose.sh" up -d --force-recreate --no-deps acme-agent partner-agent >>"$LOGS/a2a.log" 2>&1
 else
   "$ROOT/scripts/a2a-compose.sh" down >"$LOGS/a2a.log" 2>&1
@@ -71,12 +70,12 @@ echo "### 5/6 ai-chatbot"
 (cd "$ROOT/ai-chatbot" && nohup "$PYTHON" server.py >"$LOGS/ai-chatbot.log" 2>&1 &)
 
 # ==== Step 6/6: the business ==================================================
-# The cards, the gateway's rules and the MCP and A2A backends depend on the
-# business the demo plays (DEMO_VERTICAL). After a change, the gateway is set up
-# again for it: a few minutes, once.
+# Each business (DEMO_VERTICAL) has its own project in AI Workspace and its own
+# routes on the gateways. The first time a business is chosen, it is set up
+# (a few minutes); after that, switching takes a minute or two.
 echo "### 6/6 business: ${DEMO_VERTICAL:-telco}"
-if [[ "$(cat "$ROOT/verticals/.provisioned" 2>/dev/null)" != "${DEMO_VERTICAL:-telco}" ]]; then
-  echo "  the gateway is not set up for it yet: provisioning (log: $LOGS/provisioning.log)"
+if ! grep -qx "${DEMO_VERTICAL:-telco}" "$ROOT/verticals/.set-up" 2>/dev/null; then
+  echo "  first time for this business: setting the gateway up (log: $LOGS/provisioning.log)"
   "$PYTHON" "$ROOT/scripts/python/provision_showcases.py" >"$LOGS/provisioning.log" 2>&1
 fi
 

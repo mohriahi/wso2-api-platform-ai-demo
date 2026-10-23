@@ -79,17 +79,21 @@ from collections import namedtuple
 from urllib.parse import urlsplit
 
 from gateway_settings import missing_gateway_settings
-from vertical import PROVISIONED, VERTICAL_ID, policy
+from vertical import PROJECT_ID, PROVISIONED, VERTICAL_ID, own_id, own_path, policy, vertical
 from platform_api import (
     ROOT, PROVIDERS, DEFAULT_PROVIDER_ID,
     probe_gateway, controller_api, api, login, deploy, read_secret, provider_key, upsert_shared_provider, budget_for,
     budget_duration, showcase, showcases, request,
 )
-from target import DEMO_ENV, setting, WORKSPACE_URL, PROJECT_ID, LLM_GATEWAY, MCP_GATEWAY, Gateway, A2A_ENABLED, A2A_GATEWAY
+from target import DEMO_ENV, setting, WORKSPACE_URL, LLM_GATEWAY, MCP_GATEWAY, Gateway, A2A_ENABLED, A2A_GATEWAY
 
 # =============================================================================
 # 1. Configuration. Addresses are in target.py, providers in providers.json.
 # =============================================================================
+# The providers are shared by every business; each business groups its own
+# proxies in its own applications.
+for _p in PROVIDERS:
+    _p["appId"] = own_id(_p["appId"])
 # How this machine's gateway appears in AI Workspace.
 LOCAL_GATEWAY = {"displayName": "ai-gateway", "description": "Local dev gateway (offset ports)",
                  "functionalityType": "ai", "version": "1.2"}
@@ -121,6 +125,9 @@ def env_key(base_id: str, field: str, provider_id: str) -> str:
     folded in only for a non-default provider, so Anthropic's existing
     SHOWCASE_PLAIN_CHAT_API_KEY-style names are untouched."""
     key = "SHOWCASE_%s" % base_id.upper().replace("-", "_")
+    # Each business has its own keys, so their lanes live side by side.
+    if field == "API_KEY":
+        key = "SHOWCASE_%s_%s" % (VERTICAL_ID.upper(), key[len("SHOWCASE_"):])
     if provider_id != DEFAULT_PROVIDER_ID:
         key += "_" + provider_id.upper()
     return "%s_%s" % (key, field)
@@ -551,8 +558,8 @@ def build_lanes(provider: dict) -> dict:
         config = None
         if tpl["wired"]:
             # Only the key -- ai-chatbot/server.py computes this same lane's
-            # context on its own (/<providerId>-<contextSuffix>, or bare
-            # /<providerId> when contextSuffix is null, from
+            # context on its own (/<business>/<providerId>-<contextSuffix>, or
+            # /<business>/<providerId> when contextSuffix is null, from
             # ai-chatbot/showcases.json), so there is no context var left to
             # write here; see resolve_gateway()'s own comment on that.
             config = {"api_key_var": env_key(base_id, "API_KEY", provider["id"])}
@@ -562,10 +569,11 @@ def build_lanes(provider: dict) -> dict:
             if base_id == "plain-chat" and provider["id"] == DEFAULT_PROVIDER_ID:
                 config["api_key_var"] = ["GATEWAY_API_KEY", config["api_key_var"]]
         lanes[lane_id] = {
-            "id": lane_id,
+            "id": own_id(lane_id),
             "base_id": base_id,
             "providerId": provider["id"],
-            "context": f"/{provider['id']}-{tpl['context_suffix']}" if tpl["context_suffix"] else f"/{provider['id']}",
+            "context": own_path(f"/{provider['id']}-{tpl['context_suffix']}" if tpl["context_suffix"]
+                                else f"/{provider['id']}"),
             "displayName": tpl["displayName"],
             "displayPrefix": provider["displayName"],
             "providerRef": provider["providerId"],
@@ -629,9 +637,9 @@ def _cross_lane(card_id: str, display_name: str, default: dict, routed: dict,
     injected from the provider template for operation-scoped attachments."""
     path = default["messagesSuffix"]
     return {
-        "id": card_id, "base_id": card_id,
+        "id": own_id(card_id), "base_id": card_id,
         "providerId": None,  # cross-provider: not part of any per-provider loop
-        "context": showcase(card_id)["route"]["context"], "messagesSuffix": path,
+        "context": own_path(showcase(card_id)["route"]["context"]), "messagesSuffix": path,
         "displayName": display_name,
         "displayPrefix": f"{routed['displayName']} + {default['displayName']}",
         "providerRef": default["providerId"],
@@ -849,7 +857,7 @@ def ensure_project(project_id: str, display_name: str):
 
 
 def ensure_app(app_id: str, display_name: str, description: str):
-    ensure_project(PROJECT_ID, "Default" if PROJECT_ID == "default" else PROJECT_ID)
+    ensure_project(PROJECT_ID, vertical()["brand"])
     status, _ = api("GET", f"/applications/{app_id}")
     payload = {"id": app_id, "displayName": display_name, "description": description,
                "projectId": PROJECT_ID, "type": "genai"}
@@ -926,7 +934,7 @@ def upsert_proxy(lane: dict):
     lists the other one, which its routing policy switches to."""
     payload = {
         "id": lane["id"],
-        "displayName": f"{lane['displayPrefix']} - {lane['displayName']}",
+        "displayName": f"{vertical()['brand']} - {lane['displayPrefix']} - {lane['displayName']}",
         "description": f"{lane['displayName']} lane",
         "version": "v1",
         "projectId": PROJECT_ID,
@@ -950,16 +958,16 @@ def upsert_mcp_proxy(card: dict):
     status, info = api("POST", "/mcp-proxies/fetch-server-info", {"url": mcp["upstream"]})
     capabilities = {k: info.get(k) or [] for k in ("tools", "resources", "prompts")} if status == 200 else None
     _upsert("mcp-proxies", {
-        "id": card["id"],
-        # "<server> - <card>", like the LLM proxies' "<provider> - <lane>". The
+        "id": own_id(card["id"]),
+        # "<business> - <server> - <card>", like the LLM proxies'. The
         # gateway only accepts letters, digits, spaces, - _ and . in this name,
         # so anything else, such as brackets, is left out.
         "displayName": " ".join(re.sub(r"[^\w .-]+", " ", " - ".join(
-            filter(None, (mcp.get("server"), card.get("title") or card["id"])))).split()),
+            filter(None, (vertical()["brand"], mcp.get("server"), card.get("title") or card["id"])))).split()),
         "description": card.get("tagline", ""),
         "version": "v1.0",
         "projectId": PROJECT_ID,
-        "context": mcp["context"],
+        "context": own_path(mcp["context"]),
         "upstream": {"main": {"url": mcp["upstream"]}},
         "mcpSpecVersion": "2025-06-18",
         "policies": mcp.get("policies", []),
@@ -974,7 +982,7 @@ def public_card(card: dict) -> dict:
     managed = card["a2a"].get("managedCard")
     if not managed:
         return {"mode": "passthrough", "rewriteUrls": True}
-    base = A2A_GATEWAY.url + card["a2a"]["context"]
+    base = A2A_GATEWAY.url + own_path(card["a2a"]["context"])
     return {"mode": "managed", "content": dict(managed, supportedInterfaces=[
         {"url": base, "protocolBinding": "JSONRPC", "protocolVersion": "1.0"},
         {"url": base + "/v1", "protocolBinding": "HTTP+JSON", "protocolVersion": "1.0"}])}
@@ -988,9 +996,10 @@ def write_agent(card: dict, state: dict):
     through the gateway and its policies. With "plainContext", a second proxy
     passes the agent's own card on, for the card to show the difference."""
     a2a = card["a2a"]
-    deploy_agent(card["id"], card, a2a["context"], a2a.get("policies", []), a2a.get("operations"), public_card(card))
+    deploy_agent(own_id(card["id"]), card, own_path(a2a["context"]), a2a.get("policies", []), a2a.get("operations"),
+                 public_card(card))
     if a2a.get("plainContext"):
-        deploy_agent(card["id"] + "-plain", card, a2a["plainContext"], [], None,
+        deploy_agent(own_id(card["id"] + "-plain"), card, own_path(a2a["plainContext"]), [], None,
                      {"mode": "passthrough", "rewriteUrls": True}, " - its own card")
     if any(p["name"] == "api-key-auth" for p in a2a.get("policies", [])):
         issue_agent_key(card)
@@ -1002,7 +1011,8 @@ def deploy_agent(agent_id: str, card: dict, context: str, policies: list, operat
     a2a = card["a2a"]
     body = {"apiVersion": "gateway.api-platform.wso2.com/v1", "kind": "Agent",
             "metadata": {"name": agent_id},
-            "spec": {"displayName": " - ".join(filter(None, (a2a.get("agent"), card.get("title")))) + suffix,
+            "spec": {"displayName": " - ".join(filter(None, (vertical()["brand"], a2a.get("agent"), card.get("title"))))
+                     + suffix,
                      "version": "v1.0", "context": context, "upstream": {"url": a2a["upstream"]},
                      "a2a": {"protocolVersion": "1.0",
                              "operationConfigs": {"transports": [
@@ -1030,7 +1040,7 @@ def issue_agent_key(card: dict):
     """A key the A2A gateway issues for the calling agent, written to
     secrets/gateway-keys.env like the cards' keys. The agent's older keys are
     revoked first, so only the new one works."""
-    agent_id = card["id"]
+    agent_id = own_id(card["id"])
     status, resp = controller_api(A2A_GATEWAY, "GET", f"/agents/{agent_id}/api-keys")
     for old in ((resp or {}).get("apiKeys") or [] if status == 200 else []):
         controller_api(A2A_GATEWAY, "DELETE", f"/agents/{agent_id}/api-keys/{old['name']}")
@@ -1038,14 +1048,14 @@ def issue_agent_key(card: dict):
                                   {"name": "assistant-%d" % int(time.time())})
     if status not in (200, 201):
         sys.exit(f"  agent key failed: {status} {resp}")
-    var = env_key(agent_id, "API_KEY", DEFAULT_PROVIDER_ID)
+    var = env_key(card["id"], "API_KEY", DEFAULT_PROVIDER_ID)
     write_config_env(var, resp["apiKey"]["apiKey"])
     print(f"  {var} written to secrets/gateway-keys.env")
     # The gateway loads a new key within a few seconds.
     message = {"jsonrpc": "2.0", "id": 1, "method": "SendMessage", "params": {"message": {
         "messageId": "key-check-%d" % int(time.time()), "role": "ROLE_USER", "parts": [{"text": "key check"}]}}}
     for _ in range(30):
-        if request("POST", A2A_GATEWAY.url + card["a2a"]["context"], message,
+        if request("POST", A2A_GATEWAY.url + own_path(card["a2a"]["context"]), message,
                    {"A2A-Version": "1.0", "X-API-Key": resp["apiKey"]["apiKey"]})[0] == 200:
             print("  agent key confirmed live on the gateway")
             return
@@ -1172,7 +1182,7 @@ def write_lane(lane: dict, state: dict):
 
 def write_mcp_proxy(card: dict, state: dict):
     upsert_mcp_proxy(card)
-    deploy(MCP_GATEWAY, "mcp-proxies", card["id"], card["mcp"]["context"], "/mcp")
+    deploy(MCP_GATEWAY, "mcp-proxies", own_id(card["id"]), own_path(card["mcp"]["context"]), "/mcp")
 
 
 # =============================================================================
@@ -1398,8 +1408,8 @@ def plan(requested: list) -> list:
     return ([Write("applications", p["appId"], None, p) for p in providers]
             + [Write("llm-providers", p["providerId"], p["providerContext"], p) for p in providers]
             + [Write("llm-proxies", lane["id"], lane["context"], lane) for lane in lanes]
-            + [Write("mcp-proxies", card["id"], card["mcp"]["context"], card) for card in cards]
-            + [Write("agents", card["id"], card["a2a"]["context"], card) for card in agents])
+            + [Write("mcp-proxies", own_id(card["id"]), own_path(card["mcp"]["context"]), card) for card in cards]
+            + [Write("agents", own_id(card["id"]), own_path(card["a2a"]["context"]), card) for card in agents])
 
 
 def exists(w) -> bool:
@@ -1467,10 +1477,11 @@ def main():
                       "the keys issued so far")
             restart_ai_chatbot()
 
-    # Remembers which business the gateway is set up for: run-local.sh sets it
-    # up again when DEMO_VERTICAL changes.
+    # Remembers that the gateway is set up for this business: run-local.sh
+    # sets a business up only the first time it is chosen.
     if not [a for a in args if not a.startswith("--")]:
-        PROVISIONED.write_text(VERTICAL_ID + "\n")
+        done = set(PROVISIONED.read_text().split()) if PROVISIONED.exists() else set()
+        PROVISIONED.write_text("\n".join(sorted(done | {VERTICAL_ID})) + "\n")
     print("\ndone." + (" ai-chatbot restarted with the new keys." if state["keys_changed"] else ""))
 
 

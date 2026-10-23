@@ -15,8 +15,8 @@ secrets/*
 
 # --- this machine's settings, copied from demo.env.example on the first run
 demo.env
-# --- the business the gateway was last set up for (see scripts/run-local.sh)
-verticals/.provisioned
+# --- the businesses the gateway is set up for (see scripts/run-local.sh)
+verticals/.set-up
 !api-platform.env.example
 
 # --- ai-chatbot/config.env IS tracked and holds no secrets -- every

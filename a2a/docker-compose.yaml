@@ -21,15 +21,14 @@ services:
     ports: !override
       - "${A2A_GATEWAY_HTTPS_PORT}:8443"
 
-  # The business's own agent; what it answers comes with the business the
-  # demo plays (DEMO_VERTICAL).
+  # The business's own agent, for every business at /<business>.
   acme-agent:
     build: ../a2a/agent
     image: ${DEMO_NAME:-ai-demo}-a2a-agent:latest
     environment:
-      - VERTICAL=${DEMO_VERTICAL:-telco}
       - ROLE=agent
-      # The address the agent advertises in its card: the one the gateway reaches it on.
+      # The address the agent advertises in its card (plus /<business>): the
+      # one the gateway reaches it on.
       - PUBLIC_URL=http://acme-agent:8000
     volumes:
       - ../verticals:/verticals:ro
@@ -43,7 +42,6 @@ services:
     build: ../a2a/agent
     image: ${DEMO_NAME:-ai-demo}-a2a-partner:latest
     environment:
-      - VERTICAL=${DEMO_VERTICAL:-telco}
       - ROLE=partner
       - PUBLIC_URL=http://partner-agent:8000
     volumes:

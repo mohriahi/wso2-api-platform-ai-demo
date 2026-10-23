@@ -202,8 +202,9 @@ If another program already uses the gateway's ports (8080, 8443...), see
 
 To switch the business the demo plays, set `DEMO_VERTICAL` in `demo.env`
 (`telco` for Acme Mobile, `bank` for Acme Bank), then run
-`./scripts/run-local.sh`. It sets the gateway up for the new business: a few
-minutes, once per change.
+`./scripts/run-local.sh`. Each business has its own project in AI Workspace:
+the first time a business is chosen, it is set up (a few minutes); after
+that, switching takes a minute or two.
 
 Only reach for `reset-and-setup.sh` again if you actually want a clean
 slate: it wipes every database (providers, gateway registrations, cached
@@ -215,7 +216,9 @@ Open the chatbot at http://localhost:8600 and try the showcases. Its launcher
 menu links to the other consoles.
 
 Then open AI Workspace (https://localhost:9643, user `admin`) to see how it's
-all modeled in the platform:
+all modeled in the platform. Each business the demo plays has its own project
+(Acme Mobile, Acme Bank), with its own proxies and applications; the
+providers are shared.
 
 The gateway, registered and active:
 ![Gateway](.docs/preview-ai-workspace-ai-gateway.png)

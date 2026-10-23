@@ -13,9 +13,22 @@ from target import ROOT, setting
 
 VERTICAL_ID = setting("DEMO_VERTICAL", "telco")
 FOLDER = ROOT / "verticals" / VERTICAL_ID
-# The business the gateway was last set up for, so run-local.sh knows when to
-# set it up again.
-PROVISIONED = ROOT / "verticals" / ".provisioned"
+# Each business has its own project in AI Workspace.
+PROJECT_ID = VERTICAL_ID
+# The businesses the gateway is already set up for, one per line: run-local.sh
+# sets up a business only the first time it is chosen.
+PROVISIONED = ROOT / "verticals" / ".set-up"
+
+
+def own_id(name: str) -> str:
+    """A resource's id in AI Workspace and on the gateways: each business has its own."""
+    return f"{VERTICAL_ID}-{name}"
+
+
+def own_path(context: str) -> str:
+    """A route's path on the gateways, under the business's name, so the routes
+    of every business live side by side."""
+    return f"/{VERTICAL_ID}{context}"
 
 
 def vertical() -> dict:
@@ -82,4 +95,4 @@ def for_business(registry: dict) -> dict:
         own = extra.get(kind) or {}
         registry[kind] = [_merge(item, own[item["id"]]) if item.get("id") in own else item
                           for item in registry.get(kind) or []]
-    return _fill(registry, vertical())
+    return _fill(registry, dict(vertical(), id=VERTICAL_ID))

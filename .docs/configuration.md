@@ -161,8 +161,10 @@ DEMO_VERTICAL=telco   # Acme Mobile
 DEMO_VERTICAL=bank    # Acme Bank
 ```
 
-Then run `./scripts/run-local.sh`: it sees the change and sets the gateway up
-for the new business. That takes a few minutes, once per change.
+Then run `./scripts/run-local.sh`. Each business has its own project in AI
+Workspace and its own routes on the gateways (`/telco/...`, `/bank/...`), so
+both can stay in place side by side. The first time a business is chosen, it
+is set up (a few minutes); after that, switching takes a minute or two.
 
 Each business is a folder of `verticals/`:
 
@@ -329,8 +331,7 @@ restart it. The cards that need keys from 3. or 4. also need those
 settings on that gateway.
 
 Optional, in `demo.env`: `REMOTE_ADMIN_USERNAME` if the admin is not `admin`,
-`REMOTE_PROJECT_ID` to use a project of its own, and
-`REMOTE_GATEWAY_CONTROLLER_URL` (the gateway's management API) to check
+and `REMOTE_GATEWAY_CONTROLLER_URL` (the gateway's management API) to check
 deployments without test calls that would show in analytics. The
 `REMOTE_MCP_GATEWAY_*` lines send the MCP cards to another gateway.
 
