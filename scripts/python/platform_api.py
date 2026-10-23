@@ -20,6 +20,7 @@ import urllib.error
 import urllib.request
 
 from target import ROOT, WORKSPACE_URL, ADMIN_USERNAME, ADMIN_PASSWORD, REMOTE, Gateway, read_env_file
+from vertical import for_business
 
 # One entry per upstream LLM, loaded from providers.json at the repo root --
 # not defined here, because ai-chatbot/server.py needs the exact same
@@ -111,8 +112,8 @@ def budget_for(provider: dict) -> float:
 
 
 def showcases() -> list:
-    """The cards of ai-chatbot/showcases.json, the card catalogue."""
-    return json.loads((ROOT / "ai-chatbot" / "showcases.json").read_text())["showcases"]
+    """The cards of ai-chatbot/showcases.json, set for the business (verticals/)."""
+    return for_business(json.loads((ROOT / "ai-chatbot" / "showcases.json").read_text()))["showcases"]
 
 
 def showcase(showcase_id: str) -> dict:

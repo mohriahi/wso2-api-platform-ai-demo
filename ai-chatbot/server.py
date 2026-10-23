@@ -49,7 +49,7 @@ STATIC = os.path.join(HERE, "static")
 sys.path.insert(0, os.path.join(HERE, "..", "scripts", "python"))
 from gateway_settings import missing_gateway_settings  # noqa: E402
 from target import A2A_ENABLED, A2A_GATEWAY, LLM_GATEWAY, MCP_GATEWAY, ROOT, read_env_file, setting  # noqa: E402
-from vertical import catalogue_path, vertical  # noqa: E402
+from vertical import catalogue_path, for_business, vertical  # noqa: E402
 
 # The showcase registry. Deliberately NOT under static/ -- _serve_static would
 # hand the whole file, gateway wiring included, to any GET.
@@ -397,11 +397,13 @@ def load_showcases():
     try:
         with open(SHOWCASES_FILE) as handle:
             raw = json.loads(re.sub(r"\{([A-Z][A-Z0-9_]*)\}", _demo_setting, handle.read()))
+        if isinstance(raw, dict):
+            raw = for_business(raw)
     except OSError:
         if not _REGISTRY["list"]:
             _install_registry([dict(_FALLBACK_ENTRY)], "showcases.json not found")
         return _REGISTRY
-    except (json.JSONDecodeError, ValueError) as exc:
+    except (json.JSONDecodeError, ValueError, KeyError, IndexError) as exc:
         _REGISTRY["error"] = "showcases.json did not parse: %s" % exc
         if not _REGISTRY["list"]:
             _install_registry([dict(_FALLBACK_ENTRY)], _REGISTRY["error"])
