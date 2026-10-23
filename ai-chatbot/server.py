@@ -1616,6 +1616,12 @@ class Handler(BaseHTTPRequestHandler):
                                     "gatewayOutcome": "error", "showcase": showcase["id"],
                                     "gatewayBody": json.dumps(card)[:4000]})
 
+        # On a card that compares the partner's own card with the one the
+        # gateway vetted: which one the assistant read this turn.
+        which = None
+        if entry["a2a"].get("managedCard") and entry["a2a"].get("plainContext"):
+            which = "own" if base != showcase["url"] else "vetted"
+
         # A card whose assistant reads the agent card before it writes, as an
         # orchestrating agent does: it may ask the customer first instead.
         text, decision = messages[-1]["content"], None
@@ -1623,15 +1629,19 @@ class Handler(BaseHTTPRequestHandler):
             read = self._a2a_read_card(card, messages, entry)
             if isinstance(read, tuple) and read[0] == "customer":
                 self._begin_sse()
-                self._sse("agent_card", {"name": card.get("name"), "binding": "JSON-RPC", "url": endpoint,
-                                         "decision": "The assistant read this card and asked the customer first. "
-                                                     "The agent was not called."})
+                self._sse("agent_card", {"name": card.get("name"), "binding": "JSON-RPC", "url": endpoint, "card": which,
+                                         "decision": ("The assistant followed the instruction hidden in the partner's "
+                                                      "card and asked the customer first. " if which == "own" else
+                                                      "The assistant read this card and asked the customer first. ")
+                                                     + "The agent was not called."})
                 self._emit_openai({"model": "assistant (read the agent card)",
                                    "choices": [{"message": {"content": read[1]}, "finish_reason": "stop"}]})
                 return
             if not isinstance(read, tuple):
                 return read
-            text, decision = read[1], "The assistant read this card and sent the agent: " + read[1]
+            text, decision = read[1], ("The assistant read the partner's card, hidden instruction included, and "
+                                       "sent the agent: " if which == "own" else
+                                       "The assistant read this card and sent the agent: ") + read[1]
         message = {"messageId": str(uuid.uuid4()), "role": "ROLE_USER",
                    "parts": [{"text": text}]}
         if conversation:
@@ -1681,7 +1691,7 @@ class Handler(BaseHTTPRequestHandler):
         text = "".join(part.get("text", "") for part in answer.get("parts") or [])
 
         self._begin_sse()
-        self._sse("agent_card", {"name": card.get("name"), "binding": "JSON-RPC", "url": endpoint,
+        self._sse("agent_card", {"name": card.get("name"), "binding": "JSON-RPC", "url": endpoint, "card": which,
                                  "decision": decision})
         self._sse("gateway_meta", gateway_meta(headers, streamed=False))
         self._emit_openai({"model": card.get("name"), "choices": [{"message": {"content": text},

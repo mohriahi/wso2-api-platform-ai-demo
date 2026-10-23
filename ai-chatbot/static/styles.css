@@ -493,6 +493,11 @@ body[data-screen="home"] .status .dot {
   color: var(--success-ink);
   font-weight: 600;
 }
+/* The partner's own card, hidden instruction included: red, so the audience
+   sees at once that the gateway did not vet it. */
+.tool-list.is-own span { color: var(--error); }
+.tool-list.is-own code.is-endpoint,
+.tool-list.is-own + .agent-decision { background: var(--error-bg); color: var(--error); }
 .tool-call {
   margin: 0 0 8px;
   border-left: 3px solid var(--success);
