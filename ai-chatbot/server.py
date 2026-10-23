@@ -446,7 +446,9 @@ def load_showcases():
         # The A2A Gateway page shows only with A2A_ENABLED (demo.env).
         if entry.get("a2a") and not A2A_ENABLED:
             continue
-        if entry["id"] in disabled or entry.get("enabled") is False:
+        if entry.get("enabled") is False:
+            continue
+        if entry["id"] in disabled:
             entry = dict(entry, status="disabled", blockedBy=[DISABLED_REASON])
         if hidden_groups:
             entry = _without_groups(entry, hidden_groups)
@@ -465,10 +467,10 @@ def load_showcases():
     return _REGISTRY
 
 
-# Cards listed in DISABLED_CARDS (demo.env), or set "enabled": false in
-# showcases.json, stay on the home screen, greyed out and not clickable, with
-# this reason: for a card whose outside service is down during a live demo, or
-# one left out of the demo.
+# Cards listed in DISABLED_CARDS (demo.env) stay on the home screen, greyed
+# out and not clickable, with this reason: for a card whose outside service is
+# down during a live demo. A card set "enabled": false in showcases.json is
+# left out of the demo altogether.
 DISABLED_REASON = "Not available in this demo"
 
 
