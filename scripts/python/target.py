@@ -37,6 +37,10 @@ def _read_demo_env() -> dict:
 
 DEMO_ENV = _read_demo_env()
 
+# The A2A Gateway page (A2A_ENABLED in demo.env) has a gateway of its own,
+# started from a2a/ next to the main one: see a2a/docker-compose.yaml.
+A2A_ENABLED = (os.environ.get("A2A_ENABLED") or DEMO_ENV.get("A2A_ENABLED", "false")) == "true"
+
 
 def _raw(name: str) -> str:
     return os.environ.get(name) or DEMO_ENV.get(name) or ""
@@ -118,4 +122,10 @@ else:
 
 # The MCP cards can use another gateway, local stack or not.
 MCP_GATEWAY = remote_gateway("REMOTE_MCP_GATEWAY") or LLM_GATEWAY
+
+# The A2A cards' gateway, on this machine, its ports one above the main
+# gateway's (scripts/a2a-compose.sh).
+_ports = gateway_ports()
+A2A_GATEWAY = Gateway("a2a-gateway", f"https://localhost:{int(_ports['GATEWAY_HTTPS_PORT']) + 1}",
+                      f"http://localhost:{int(_ports['GATEWAY_CONTROLLER_REST_PORT']) + 1}", True)
 

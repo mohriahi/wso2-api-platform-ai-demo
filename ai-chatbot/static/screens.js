@@ -91,17 +91,127 @@ let registryError = null;
 let brand = '';
 let onReset = null;
 
-/* Two home pages, one per gateway: a card with an "mcp" block belongs to the
- * MCP Gateway page, every other card to the LLM Gateway page. */
-const PAGES = ['llm', 'mcp'];
+/* One home page per gateway: a card with an "mcp" block belongs to the MCP
+ * Gateway page, one with an "a2a" block to the A2A Gateway page (only with
+ * A2A_ENABLED in demo.env), every other card to the LLM Gateway page. */
+const PAGES = ['llm', 'mcp', 'a2a'];
 let activePage = 'llm';
+let a2aEnabled = false;
 
-function pageOf(showcase) { return showcase.mcp ? 'mcp' : 'llm'; }
+function pageOf(showcase) { return showcase.a2a ? 'a2a' : showcase.mcp ? 'mcp' : 'llm'; }
+
+const PAGE_NAMES = { llm: 'LLM Gateway', mcp: 'MCP Gateway', a2a: 'A2A Gateway' };
 
 function setPage(page) {
   activePage = page;
   document.body.dataset.page = page;
+  /* The breadcrumb's first step: this page, and the way back to it from a card. */
+  const crumb = document.getElementById('crumb-page');
+  crumb.textContent = PAGE_NAMES[page];
+  crumb.href = '#/' + page;
 }
+
+/* Where the provider picker stands on the LLM page, the MCP and A2A pages
+ * name the server or agent the cards use: the open card's, or every one on
+ * the page. A card is written for it, so it is shown, not chosen. */
+function showBackend() {
+  const cards = activeShowcase ? [activeShowcase]
+    : [...showcases.values()].filter((s) => pageOf(s) === activePage);
+  const names = [...new Set(cards.map((s) => (s.a2a && s.a2a.agent) || (s.mcp && s.mcp.server)).filter(Boolean))];
+  const kind = activePage === 'a2a' ? 'Agent' : 'MCP server';
+  document.getElementById('backend-label').textContent = names.length > 1 ? kind + 's' : kind;
+  backendBtn.textContent = names.join(', ');
+  document.getElementById('backend').hidden = !names.length;
+  backendBtn.title = activeShowcase ? 'What the gateway publishes for this card'
+    : 'Each one as it is, with no gateway rule';
+  closeBackend();
+}
+
+const backendBtn = document.getElementById('backend-name');
+const backendPanel = document.getElementById('backend-panel');
+
+function closeBackend() {
+  backendPanel.hidden = true;
+  backendBtn.setAttribute('aria-expanded', 'false');
+}
+
+/* The tools as the gateway lists them to the agent: a hidden tool is not
+ * there, a renamed one shows its new name, a rewritten description its new
+ * text. */
+function mcpToolsHtml(data, title, note) {
+  if (data.signinRequired) {
+    return '<p class="backend-note">Sign in on this card first: the gateway lists these tools to a signed-in user only.</p>';
+  }
+  if (!data.tools) return '<p class="backend-note">The gateway did not answer: ' + escapeHtml(data.error || '') + '</p>';
+  return '<strong class="backend-title">' + escapeHtml(title) + '</strong>'
+    + '<p class="backend-note">' + note + '</p>'
+    + '<ul class="backend-list">' + data.tools.map((tool) => '<li><code>' + escapeHtml(tool.name)
+      + '(' + escapeHtml(tool.params.join(', ')) + ')</code><p>' + escapeHtml(tool.description) + '</p></li>').join('')
+    + '</ul>';
+}
+
+/* The agent's card as the gateway serves it: every address points at the
+ * gateway, so a client that discovers the agent comes back through it. */
+function agentDetailHtml(data, note) {
+  if (!data.name) return '<p class="backend-note">The gateway did not answer: ' + escapeHtml(data.error || '') + '</p>';
+  return '<strong class="backend-title">' + escapeHtml(data.name) + ' <span class="backend-version">v'
+      + escapeHtml(data.version || '?') + '</span></strong>'
+    + '<p class="backend-note">' + note + '</p>'
+    + '<p>' + escapeHtml(data.description || '') + '</p>'
+    + '<strong class="backend-subtitle">Skills</strong><ul class="backend-list">'
+    + data.skills.map((skill) => '<li><code>' + escapeHtml(skill.name) + '</code><p>' + escapeHtml(skill.description)
+      + (skill.examples.length ? '<br><em>"' + skill.examples.map(escapeHtml).join('", "') + '"</em>' : '') + '</p></li>').join('')
+    + '</ul><strong class="backend-subtitle">Addresses, pointed at the gateway</strong><ul class="backend-list">'
+    + data.interfaces.map((i) => '<li><code>' + escapeHtml(i.binding) + '</code><p>' + escapeHtml(i.url) + '</p></li>').join('')
+    + '</ul>';
+}
+
+/* One card's server or agent, as the gateway publishes it for that card. */
+async function detailHtml(card, onCard) {
+  const response = await fetch((card.a2a ? '/api/a2a/card' : '/api/mcp/tools') + '?showcase=' + encodeURIComponent(card.id));
+  const data = await response.json();
+  const via = '<code>' + escapeHtml(data.via || '') + '</code>';
+  if (card.a2a) {
+    return agentDetailHtml(data, onCard ? 'Its agent card, as the gateway serves it through ' + via + '.'
+      : 'Its agent card, through ' + via + ', a proxy with no gateway rule.');
+  }
+  return onCard ? mcpToolsHtml(data, 'Tools the gateway publishes', 'What the agent sees through ' + via + ', after the gateway\'s policies.')
+    : mcpToolsHtml(data, data.server, 'Its tools as it offers them, through ' + via + ', a proxy with no gateway rule.');
+}
+
+/* From a card: what the gateway publishes for it. From a page: each server or
+ * agent as it is, through the card that puts no rule on it. */
+backendBtn.addEventListener('click', async () => {
+  if (!backendPanel.hidden) return closeBackend();
+  const card = activeShowcase;
+  backendPanel.innerHTML = '<p class="backend-note">Asking the gateway...</p>';
+  backendPanel.hidden = false;
+  backendBtn.setAttribute('aria-expanded', 'true');
+  try {
+    let html;
+    if (card) {
+      html = await detailHtml(card, true);
+    } else {
+      const cards = [...showcases.values()].filter((s) => pageOf(s) === activePage && (s.mcp || s.a2a));
+      const backendOf = (s) => (s.a2a ? s.a2a.agent : s.mcp.server);
+      const sections = [];
+      for (const name of [...new Set(cards.map(backendOf))]) {
+        const plain = cards.find((s) => backendOf(s) === name && !((s.a2a || s.mcp).policies || []).length);
+        sections.push(plain ? await detailHtml(plain, false)
+          : '<strong class="backend-title">' + escapeHtml(name) + '</strong><p class="backend-note">Open one of its cards:'
+            + ' each one puts a gateway rule on it, so none shows it as it is.</p>');
+      }
+      html = sections.join('<hr class="backend-sep">');
+    }
+    if (activeShowcase === card) backendPanel.innerHTML = html;
+  } catch (error) {
+    backendPanel.innerHTML = '<p class="backend-note">The gateway did not answer.</p>';
+  }
+});
+document.addEventListener('click', (event) => {
+  if (!backendPanel.hidden && !document.getElementById('backend').contains(event.target)) closeBackend();
+});
+document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeBackend(); });
 
 /* chat.js owns the transcript state, so it registers what to clear. */
 export function onSessionReset(fn) { onReset = fn; }
@@ -162,6 +272,8 @@ export async function loadRegistry() {
     registryError = (data.registry && data.registry.error) || null;
     showcases.clear();
     for (const item of data.showcases || []) showcases.set(item.id, item);
+    a2aEnabled = Boolean(data.a2a);
+    document.getElementById('nav-a2a').hidden = !a2aEnabled;
     GROUPS = Object.fromEntries((data.groups || []).map((g) => [g.id, [g.title, g.icon, g.text, g.order]]));
   } catch (error) {
     registryError = 'could not load /api/showcases: ' + error;
@@ -245,6 +357,7 @@ const ICONS = {
   gauge: '<path d="M12 14l4-4M3.3 18a9 9 0 1 1 17.4 0"/>',
   shield: '<path d="M12 3l8 3v6c0 5-3.4 8.4-8 9-4.6-.6-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  agents: '<circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.7 10.6l6.6-3.2M8.7 13.4l6.6 3.2"/>',
   wrench: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-2.4z"/>',
   chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>',
   alert: '<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/>',
@@ -355,6 +468,7 @@ function mountShowcase(showcase) {
   activeShowcase = showcase;
   document.body.dataset.screen = 'chat';
   setPage(pageOf(showcase));
+  showBackend();
   closeRail();
 
   /* The tile shows the outside service as a label; here it follows the name,
@@ -363,12 +477,14 @@ function mountShowcase(showcase) {
   brandProduct.textContent = name;
   document.title = name + ' - AI Gateway showcase';
 
-  /* The status line names the provider, so the reminder that these cards are
-   * different providers, not different prompts, is always on screen. */
-  statusEl.title = showcase.mcp
+  /* The gateway's tooltip gives this card's route on it, for the presenter;
+   * the audience sees the path, not the plumbing. */
+  statusEl.title = (showcase.a2a
+    ? 'The agent proxy on the gateway this card\'s messages go through, with its policy attached.'
+    : showcase.mcp
     ? 'The MCP proxy on the gateway this card\'s tool calls go through, with its policy attached.'
-    : STATUS_TITLE;
-  setIdleStatus(showcase.gatewayContext ? 'via ' + showcase.gatewayContext : 'no provider wired');
+    : STATUS_TITLE) + (showcase.gatewayContext ? ' Route: ' + showcase.gatewayContext : '');
+  setIdleStatus(showcase.gatewayContext ? '' : 'not wired');
 
   refreshSignin(showcase);
 
@@ -476,9 +592,10 @@ function mountHome(page) {
   setPage(page);
   renderCards();
   setIdleStatus();
-  statusEl.title = '';
+  statusEl.title = 'Every message of these cards goes through the WSO2 AI Gateway.';
   activeId = null;
   activeShowcase = null;
+  showBackend();
   document.body.dataset.screen = 'home';
   document.body.dataset.rail = '';
   brandProduct.textContent = 'AI Assistant';
@@ -497,7 +614,7 @@ export function applyHash() {
   catch (e) { return mountHome('llm'); }
   const showcase = showcases.get(id);
   if (!showcase) {
-    mountHome(PAGES.includes(id) ? id : 'llm');
+    mountHome(PAGES.includes(id) && (id !== 'a2a' || a2aEnabled) ? id : 'llm');
     return;
   }
   mountShowcase(showcase);

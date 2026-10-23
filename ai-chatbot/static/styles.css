@@ -6,9 +6,9 @@
           sans-serif;
 
   --col:          780px;   /* the conversation column, unchanged */
-  --rail:         340px;
+  --rail:         380px;
   --gap:          28px;
-  --shell:        1148px;  /* col + rail + gap */
+  --shell:        1188px;  /* col + rail + gap */
 
   --radius:       20px;
   --shadow-card:  0 1px 2px color-mix(in srgb, var(--line-base) 6%, transparent), 0 8px 24px color-mix(in srgb, var(--line-base) 7%, transparent);
@@ -47,6 +47,9 @@
   --error-bg:     #FFF0F3;
   --warn:         #E8A200;
   --warn-ink:     #A87400;
+
+  --beta:         #F5B700;
+  --beta-ink:     #3D2A00;
 
   /* Details */
   --code-bg:      #001F66;
@@ -108,13 +111,12 @@ body {
   flex: 0 0 auto;
 }
 
+/* Line 1: the brand, the gateway pages, the consoles. */
 .topbar-inner {
   width: 100%; max-width: var(--shell); margin-inline: auto;
-  padding: 14px 20px;
-  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 10px 20px;
+  display: flex; align-items: center; gap: 24px;
 }
-
-.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
 
 .wordmark {
   font-weight: 800;
@@ -128,28 +130,63 @@ body {
 }
 .wordmark:hover { opacity: .85; }
 
-.brand-divider {
-  width: 1px; height: 20px;
-  background: color-mix(in srgb, var(--top-text) 28%, transparent);
+/* Line 2: where we are, and the path each message takes. */
+.contextbar {
+  background: color-mix(in srgb, var(--top-bg) 82%, black);
+  border-top: 1px solid color-mix(in srgb, var(--top-text) 12%, transparent);
+}
+.contextbar-inner {
+  width: 100%; max-width: var(--shell); margin-inline: auto;
+  padding: 7px 20px;
+  display: flex; align-items: center; justify-content: space-between; gap: 20px;
 }
 
+.crumbs { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 14px; }
+.crumb-page {
+  color: color-mix(in srgb, var(--top-text) 78%, transparent);
+  text-decoration: none; white-space: nowrap; font-weight: 600;
+}
+.crumb-page:hover { color: var(--top-text); text-decoration: underline; }
+/* On a card, the page's name is the way back. */
+body[data-screen="chat"] .crumb-page::before { content: "\2039"; margin-right: 6px; font-size: 17px; }
+body[data-screen="home"] .crumb-card { display: none; }
+.crumb-card { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.crumb-sep { color: color-mix(in srgb, var(--top-text) 40%, transparent); }
 .brand-product {
-  font-weight: 500;
-  font-size: 15px;
-  color: color-mix(in srgb, var(--top-text) 82%, transparent);
+  font-weight: 600;
+  color: var(--top-text);
   white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; min-width: 0;
 }
 
-.topbar-right { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+/* Assistant, then the gateway, then what is behind it. */
+.flow {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  font-size: 13px;
+}
+.flow-step { display: flex; align-items: center; }
+.flow-app { color: color-mix(in srgb, var(--top-text) 78%, transparent); font-weight: 600; }
+.flow-arrow::before {
+  content: "\2192";
+  color: color-mix(in srgb, var(--top-text) 50%, transparent);
+  font-size: 15px;
+}
 
 .status {
   margin: 0;
-  display: flex; align-items: center; gap: 7px;
-  font-size: 13px;
-  color: color-mix(in srgb, var(--top-text) 75%, transparent);
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 700;
+  color: var(--top-text);
   white-space: nowrap;
+  padding: 6px 14px; border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--success) 55%, transparent);
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  cursor: default;
 }
+/* What the gateway is doing right now: asking, blocked, an error. Empty when idle. */
+.status-text { font-weight: 500; color: color-mix(in srgb, var(--top-text) 75%, transparent); }
+.status-text:empty { display: none; }
 
 .dot {
   width: 8px; height: 8px; border-radius: 50%;
@@ -200,13 +237,15 @@ body {
 
 /* The launcher: a grid button that opens the demo's other consoles. */
 .launcher { position: relative; }
+.launcher { margin-left: auto; }
 .launcher-btn {
-  display: grid; place-items: center;
-  width: 36px; height: 36px; padding: 0;
+  display: inline-flex; align-items: center; gap: 8px;
+  font: inherit; font-size: 13px; font-weight: 600;
+  padding: 7px 14px;
   color: var(--top-text);
   background: transparent;
   border: 1px solid color-mix(in srgb, var(--top-text) 34%, transparent);
-  border-radius: 50%;
+  border-radius: 999px;
   cursor: pointer;
   transition: background .15s, border-color .15s;
 }
@@ -400,6 +439,12 @@ body {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px;
   padding: 2px 8px; border-radius: 999px;
   background: var(--soft); color: var(--text-strong);
+}
+/* The address an agent card gives, once the gateway has pointed it at itself. */
+.tool-list code.is-endpoint {
+  background: color-mix(in srgb, var(--success) 16%, transparent);
+  color: var(--success-ink);
+  font-weight: 600;
 }
 .tool-call {
   margin: 0 0 8px;
@@ -653,7 +698,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 8px 20px;
-  padding: 11px 20px;
+  padding: 7px 20px;
 }
 .control-group,
 .control-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
@@ -778,16 +823,69 @@ body {
 body[data-screen="home"] #screen-chat,
 body[data-screen="chat"] #screen-home { display: none; }
 
-/* Two pages, one per gateway. MCP cards fix their own model, so the provider
-   picker has nothing to do there. */
-body[data-page="llm"] [data-page-only="mcp"],
-body[data-page="mcp"] [data-page-only="llm"],
-body[data-page="mcp"] .provider { display: none; }
+/* One page per gateway. MCP and A2A cards fix their own backend, so the
+   provider picker has nothing to do there. */
+body:not([data-page="llm"]) [data-page-only="llm"],
+body:not([data-page="mcp"]) [data-page-only="mcp"],
+body:not([data-page="a2a"]) [data-page-only="a2a"],
+body:not([data-page="llm"]) .provider:not(.backend) { display: none; }
+body[data-page="llm"] .backend, .backend[hidden] { display: none; }
+/* The server or agent a page's cards use, where the provider picker stands:
+   same look, and a click shows what the gateway publishes for the open card. */
+.backend { margin: 0; position: relative; }
+/* With the A2A tab too, the tabs drop "Gateway" when space runs short, so the
+   card's name keeps its room. */
+@media (max-width: 1000px) {
+  .gw-nav:has(#nav-a2a:not([hidden])) .nav-word { display: none; }
+}
+.backend-name {
+  font: inherit; font-size: 13px; font-weight: 700; color: var(--top-text);
+  background: color-mix(in srgb, var(--top-text) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--top-text) 40%, transparent);
+  border-radius: 999px; padding: 7px 15px; cursor: pointer;
+}
+.backend-name:hover:not(:disabled) { background: color-mix(in srgb, var(--top-text) 20%, transparent); }
+.backend-name:disabled { cursor: default; }
+/* What the gateway publishes for the open card, under its server's name. */
+.backend-panel {
+  position: absolute; top: calc(100% + 10px); right: 0; z-index: 40;
+  width: min(440px, calc(100vw - 28px)); max-height: 60vh; overflow: auto;
+  padding: 14px 16px;
+  background: var(--surface); color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--line-base) 12%, transparent);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--line-base) 18%, transparent);
+  font-size: 13px; line-height: 1.45;
+}
+.backend-panel[hidden] { display: none; }
+.backend-title { display: block; font-size: 14px; margin-bottom: 4px; color: var(--text-strong); }
+.backend-note { margin: 0 0 10px; color: var(--text-muted); }
+.backend-list { list-style: none; margin: 0; padding: 0; }
+.backend-list li + li { margin-top: 10px; padding-top: 10px; border-top: 1px solid color-mix(in srgb, var(--line-base) 10%, transparent); }
+.backend-list code { font-weight: 700; }
+.backend-list p { margin: 4px 0 0; }
+.backend-sep { border: 0; border-top: 1px solid color-mix(in srgb, var(--line-base) 14%, transparent); margin: 14px 0; }
+.backend-subtitle { display: block; margin: 12px 0 6px; color: var(--text-strong); }
+.backend-version { font-weight: 600; color: var(--text-muted); }
 
-.gw-nav { display: flex; gap: 6px; }
+/* The three gateways as one switch: the page you are on is filled. */
+.gw-nav {
+  display: flex; gap: 2px; padding: 3px; border-radius: 999px;
+  background: color-mix(in srgb, var(--top-text) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--top-text) 22%, transparent);
+}
+.gw-nav .ghost-btn { border-color: transparent; padding: 6px 16px; }
 .gw-nav a { text-decoration: none; }
+.gw-nav a[hidden] { display: none; }
+.beta {
+  display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+  vertical-align: 1px;
+  background: var(--beta); color: var(--beta-ink);
+}
 body[data-page="llm"] #nav-llm,
-body[data-page="mcp"] #nav-mcp {
+body[data-page="mcp"] #nav-mcp,
+body[data-page="a2a"] #nav-a2a {
   background: var(--top-text);
   border-color: var(--top-text);
   color: var(--top-bg);
@@ -811,7 +909,8 @@ body[data-rail="none"] .workspace > .shell { grid-template-columns: minmax(0, va
   color: var(--text-strong);
 }
 
-.home-head p { margin: 0 0 4px; color: var(--text-muted); }
+/* A comfortable line length: about 70 characters. */
+.home-head p { margin: 0 0 4px; color: var(--text-muted); max-width: 72ch; }
 
 .cards { padding: 22px 20px 40px; }
 
@@ -864,7 +963,7 @@ body[data-rail="none"] .workspace > .shell { grid-template-columns: minmax(0, va
 .card-grid {
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
 }
 
 .card {
@@ -942,6 +1041,8 @@ body[data-rail="none"] .workspace > .shell { grid-template-columns: minmax(0, va
   font-size: 11px;
   color: var(--text-muted);
 }
+/* The card's text rule is more specific: the policy names stay small. */
+.card .card-cap { font-size: 11.5px; }
 /* A name too long for the card is cut, with the full name on hover. */
 .card-cap span {
   max-width: 100%;
@@ -1335,7 +1436,7 @@ body[data-rail="none"] .workspace > .shell { grid-template-columns: minmax(0, va
 .step-q-text { margin: 0; font-size: 14px; color: var(--text); }
 .step-q-actions { display: flex; gap: 6px; margin-top: 9px; }
 
-.step-expect { margin: 9px 0 0; font-size: 13px; color: var(--text-muted); }
+.step-expect { margin: 9px 0 0; font-size: 13px; line-height: 1.6; color: var(--text-muted); }
 .step-expect span {
   display: block; margin-bottom: 1px;
   font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
@@ -1434,15 +1535,17 @@ body[data-rail="none"] .workspace > .shell { grid-template-columns: minmax(0, va
   .provider-label, .status span:not(.dot) { display: none; }
 }
 @media (max-width: 760px) {
-  .topbar-inner { padding: 12px 14px; flex-wrap: wrap; row-gap: 10px; }
-  .topbar-right { width: 100%; gap: 8px; flex-wrap: wrap; }
-  .launcher { margin-left: auto; }
+  .topbar-inner { padding: 10px 14px; gap: 12px; }
+  .contextbar-inner { padding: 6px 14px; gap: 10px; }
+  .flow-app, .flow-arrow, .status-name { display: none; }
+  .launcher-word { display: none; }
 }
 
 @media (max-width: 640px) {
   .gw-nav .ghost-btn { padding: 6px 11px; font-size: 12px; }
-  .status { display: none; }
-  .brand-divider, .brand-product { display: none; }
+  .nav-word { display: none; }
+  .crumb-page { display: none; }
+  body[data-screen="chat"] .crumb-sep { display: none; }
   .controlbar-inner { padding: 8px 14px; gap: 8px; }
   .control-label { display: none; }
   .route { max-width: none; font-size: 11.5px; padding: 4px 10px; }

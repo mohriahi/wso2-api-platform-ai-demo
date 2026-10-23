@@ -78,14 +78,13 @@ export const headersBox  = document.getElementById('gw-headers');
 
 /* ---------- status line ---------- */
 
-/* What setBusy() restores when a turn finishes. Each showcase names its own
- * provider here, so the line reads "via /anthropic-guardrail" rather than a
- * generic string -- on stage that is the reminder that the cards are different
- * providers, not different prompts. */
-let idleStatus = 'via AI Gateway';
+/* What setBusy() restores when a turn finishes, next to the gateway's name:
+ * nothing when all is well (the card's route is in its tooltip), or why the
+ * card cannot run. */
+let idleStatus = '';
 
 export function setIdleStatus(text) {
-  idleStatus = text || 'via AI Gateway';
+  idleStatus = text || '';
   if (!sendBtn.disabled) statusText.textContent = idleStatus;
 }
 
@@ -141,6 +140,14 @@ const TOOL_OUTCOMES = {
   rate_limited: ['⏱', 'rate limited by the gateway'],
   error:        ['!', 'failed'],
 };
+
+/* The agent card the gateway served this turn: which agent, and the address
+ * it gives for JSON-RPC, which the gateway has pointed at itself. */
+export function agentCardHtml(card) {
+  return '<p class="tool-list"><span>Agent card served by the gateway</span>'
+    + '<code>' + escapeHtml(card.name || '?') + '</code>'
+    + '<code class="is-endpoint">' + escapeHtml(card.binding + ' ' + card.url) + '</code></p>';
+}
 
 /* The tools the gateway offered the agent this turn, one line per MCP server. */
 export function toolListHtml(servers) {

@@ -10,7 +10,7 @@
 import { renderMarkdown, escapeHtml } from './markdown.js';
 import {
   transcript, intro, form, input, sendBtn, clearBtn, clearCacheBtn,
-  alertBox, alertMetrics, addBubble, typingHtml, bubbleHtml, toolListHtml, toolCallHtml, setBusy,
+  alertBox, alertMetrics, addBubble, typingHtml, bubbleHtml, agentCardHtml, toolListHtml, toolCallHtml, setBusy,
   showError, showRefusal, clearError, showRoute, showBudget, selectorBox, selectorSelect,
   markBudgetExhausted, showSpendMeter, scrollDown, resetRoute, signinBox,
 } from './dom.js';
@@ -105,8 +105,10 @@ export async function ask(question, origin) {
       try { verdict = JSON.parse(payload.gatewayBody).message || {}; }
       catch (e) { /* not a guardrail body */ }
       turn.afterModel = verdict.direction === 'RESPONSE';
-      turn.inputTokens = turn.afterModel ? null : 0;
-      turn.outputTokens = turn.afterModel ? null : 0;
+      /* An A2A card has an agent behind the gateway, not a model: no tokens to count. */
+      turn.agent = Boolean(activeShowcase && activeShowcase.a2a);
+      turn.inputTokens = turn.afterModel || turn.agent ? null : 0;
+      turn.outputTokens = turn.afterModel || turn.agent ? null : 0;
 
       const outcome = payload.gatewayOutcome;
       turn.outcome = outcome === 'policy_block' || outcome === 'signin_required' ? 'blocked'
@@ -190,6 +192,11 @@ export async function ask(question, origin) {
           if (isFinite(prev) && isFinite(now) && prev > now) {
             turn.budgetDelta = prev - now;
           }
+          continue;
+        }
+        if (name === 'agent_card') {
+          tools += agentCardHtml(event);
+          bubble.innerHTML = tools + typingHtml();
           continue;
         }
         if (name === 'tool_list') {

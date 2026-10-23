@@ -249,7 +249,8 @@ def gateway_has_route(gateway: Gateway, context: str, messages_suffix: str) -> b
 
 def controller_api(gateway: Gateway, method: str, path: str, data=None):
     """Asks the gateway's management API what it holds, without sending
-    traffic through it, so nothing shows in analytics. Status 0 when there is
+    traffic through it, so nothing shows in analytics. It also deploys what
+    the control plane does not handle yet: A2A agents. Status 0 when there is
     no management API to ask."""
     if not gateway.controller_url:
         return 0, None

@@ -18,6 +18,7 @@ echo "### ai-workspace"
 
 echo "### mcp-servers"
 (cd "$ROOT/mcp-servers" && docker compose down)
+"$ROOT/scripts/a2a-compose.sh" down
 
 echo "### ai-chatbot"
 "$ROOT/scripts/stop-ai-chatbot.sh"

@@ -210,10 +210,27 @@ DISABLED_GROUPS=compliance-eu-ai-act
 
 Rows are named by their id, separated by commas: `routing-and-resilience`,
 `cost-and-performance`, `safety`, `identity`, `tool-governance`,
-`third-party-policies`, `owasp-llm`, `owasp-agentic`, `compliance-eu-ai-act`
+`third-party-policies`, `agent-governance`, `owasp-llm`, `owasp-agentic`, `compliance-eu-ai-act`
 and `baseline` (the `groups` list of `ai-chatbot/showcases.json`). A card
 that also belongs to another row stays there. This takes effect when the page
 is reloaded, without a restart.
+
+### Turn on the A2A Gateway page (beta)
+
+A third page where the assistant hands the customer's question to another
+agent, through the gateway. It is off by default:
+
+```
+A2A_ENABLED=true
+```
+
+A2A needs a newer gateway than the main one, so the page comes with a gateway
+of its own: the same definition and settings as the main one, on a version with
+A2A, started next to it. The main gateway is not touched. After the change, run
+`./scripts/run-local.sh`, then
+`./scripts/python/provision_showcases.py a2a-agent a2a-guardrail` the first
+time, which deploys the agents on that gateway. Its ports are one above the
+main gateway's: 8444 and 9091 by default (HTTPS and management API).
 
 ### How budgets and rate limits refill
 

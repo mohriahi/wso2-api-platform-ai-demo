@@ -113,7 +113,7 @@ export function metricsHtml(turn) {
 
   if (turn.outcome === 'blocked') {
     parts.push(chip(turn.afterModel ? 'answer blocked before the customer saw it'
-                                    : 'blocked before the model', 'is-good'));
+                    : turn.agent ? 'blocked before the agent' : 'blocked before the model', 'is-good'));
   } else if (turn.outcome === 'refused') {
     parts.push(chip('refused: budget exhausted', 'is-warn'));
   }
@@ -146,7 +146,7 @@ export function metricsHtml(turn) {
     parts.push(chip((inTok === null ? '?' : inTok) + ' in / '
                   + (outTok === null ? '?' : outTok) + ' out tokens',
                     emphasise('tokens')));
-  } else if (turn.outcome === 'blocked' && !turn.afterModel) {
+  } else if (turn.outcome === 'blocked' && !turn.afterModel && !turn.agent) {
     parts.push(chip('0 tokens: the model was never called', 'is-emphasis'));
   }
 
