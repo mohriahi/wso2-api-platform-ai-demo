@@ -78,8 +78,9 @@ wso2-api-platform-ai-demo/
 | Prompt compression | The gateway compresses the system prompt, and long messages, before the model reads them: about a fifth fewer input tokens, same answers |
 
 On the **MCP Gateway** page, the assistant becomes an agent. Its tools come
-from a small Acme Mobile MCP server (`mcp-servers/acme-mobile/`): list the
-plans, read the customer's account, change the plan. Its model goes through the
+from a small MCP server (`mcp-servers/`) whose tools come with the business
+the demo is set for. For Acme Mobile: list the plans, read the customer's
+account, change the plan. Its model goes through the
 LLM Gateway and its tool calls through MCP proxies; each call shows in the
 reply, with what the gateway did.
 
@@ -94,7 +95,7 @@ reply, with what the gateway did.
 | Tool result screening (Jev) | The same attack in what a tool returns: the partner's terms end with a note for the agent; Jev spots it and the gateway withholds the result |
 | SIM swap fraud (Jev) | The agent can send a replacement SIM; Jev checks each order against the agent's job, and the gateway refuses one going anywhere but the customer's address (whoever gets the SIM gets the number) |
 | Authentication | Without a signed-in user the gateway answers 401; the page signs you in, as any MCP client would |
-| Authorization | Same token, per-tool rule: only a user whose role grants `acme:plan:write` may change the plan |
+| Authorization | Same token, per-tool rule: only a user whose role grants `account:write` may change the plan |
 
 The last two need an OpenID Connect identity provider (Asgardeo, WSO2 Identity
 Server or any other): see the [IDP Setup](.docs/mcp-identity-provider.md).

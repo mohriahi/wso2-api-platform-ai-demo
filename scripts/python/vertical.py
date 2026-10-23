@@ -48,6 +48,12 @@ def _lookup(data: dict, path: str):
     return value
 
 
+def _text(value) -> str:
+    """A value written into a text: as is, or as compact JSON (a list of
+    allowed values inside a policy's JSON schema, for instance)."""
+    return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+
+
 def _fill(value, data: dict):
     """{v:a.b} in a card replaced with the business's value at a.b: any value
     when it is the whole string (a list of tools, a number), else its text."""
@@ -59,7 +65,7 @@ def _fill(value, data: dict):
         whole = PLACEHOLDER.fullmatch(value)
         if whole:
             return _lookup(data, whole[1])
-        return PLACEHOLDER.sub(lambda m: str(_lookup(data, m[1])), value)
+        return PLACEHOLDER.sub(lambda m: _text(_lookup(data, m[1])), value)
     return value
 
 

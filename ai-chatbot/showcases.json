@@ -2088,7 +2088,7 @@
       "mcp": {
         "server": "Acme",
         "context": "/acme-mcp-auth",
-        "upstream": "http://mcp-acme-mobile:8000/mcp",
+        "upstream": "http://mcp-acme:8000/mcp",
         "provider": "mistral",
         "policies": [
           {
@@ -2099,7 +2099,7 @@
                 "mcp-idp"
               ],
               "requiredScopes": [
-                "acme:plan:read"
+                "account:read"
               ]
             }
           }
@@ -2175,7 +2175,7 @@
         },
         {
           "title": "Test users",
-          "text": "One user whose role grants `acme:plan:read`, one whose role also grants `acme:plan:write`. Setup: `.docs/mcp-identity-provider.md`."
+          "text": "One user whose role grants `account:read`, one whose role also grants `account:write`. Setup: `.docs/mcp-identity-provider.md`."
         }
       ],
       "refs": {
@@ -2194,7 +2194,7 @@
       "mcp": {
         "server": "Acme",
         "context": "/acme-mcp-authz",
-        "upstream": "http://mcp-acme-mobile:8000/mcp",
+        "upstream": "http://mcp-acme:8000/mcp",
         "provider": "mistral",
         "policies": [
           {
@@ -2205,8 +2205,8 @@
                 "mcp-idp"
               ],
               "requiredScopes": [
-                "acme:plan:read",
-                "acme:plan:write"
+                "account:read",
+                "account:write"
               ]
             }
           },
@@ -2216,10 +2216,10 @@
             "params": {
               "tools": [
                 {
-                  "name": "change_plan",
+                  "name": "{v:mcp.core.tools.change.name}",
                   "scopes": {
                     "allOf": [
-                      "acme:plan:write"
+                      "account:write"
                     ]
                   }
                 }
@@ -2261,7 +2261,7 @@
             {
               "ask": "Switch me to the Unlimited plan.",
               "expect": {
-                "text": "change_plan is refused by the gateway (403): the token has no acme:plan:write scope."
+                "text": "change_plan is refused by the gateway (403): the token has no account:write scope."
               }
             }
           ],
@@ -2277,17 +2277,17 @@
             {
               "ask": "Now switch me to the Unlimited plan.",
               "expect": {
-                "text": "The same request goes through: this token carries acme:plan:write."
+                "text": "The same request goes through: this token carries account:write."
               }
             }
           ],
-          "notes": "The identity provider put acme:plan:write in this user's token because their role carries it; the gateway rule did not change.",
+          "notes": "The identity provider put account:write in this user's token because their role carries it; the gateway rule did not change.",
           "operator": {
             "text": "Sign out, then sign in as the user who also has write access."
           }
         }
       ],
-      "notes": "mcp-auth + mcp-authz: change_plan requires the acme:plan:write scope. The identity provider only issues the scopes a user's roles allow, so it decides and the gateway enforces. Both scopes are listed in mcp-auth's requiredScopes so the protected resource metadata advertises them and the sign-in asks for them. Provider setup: .docs/mcp-identity-provider.md.",
+      "notes": "mcp-auth + mcp-authz: change_plan requires the account:write scope. The identity provider only issues the scopes a user's roles allow, so it decides and the gateway enforces. Both scopes are listed in mcp-auth's requiredScopes so the protected resource metadata advertises them and the sign-in asks for them. Provider setup: .docs/mcp-identity-provider.md.",
       "status": "ready",
       "blockedBy": [],
       "gateway": {
@@ -2304,13 +2304,13 @@
           "title": "Who checks what",
           "steps": [
             "`mcp-auth` checks who is calling.",
-            "`mcp-authz` decides, tool by tool, what that caller may do: `change_plan` needs `acme:plan:write`.",
+            "`mcp-authz` decides, tool by tool, what that caller may do: `change_plan` needs `account:write`.",
             "The identity provider only puts that scope in the token of a user whose role grants it: the same request is allowed or refused depending on who signed in."
           ]
         },
         {
           "title": "Test users",
-          "text": "One user whose role grants `acme:plan:read`, one whose role also grants `acme:plan:write`. Setup: `.docs/mcp-identity-provider.md`."
+          "text": "One user whose role grants `account:read`, one whose role also grants `account:write`. Setup: `.docs/mcp-identity-provider.md`."
         }
       ],
       "refs": {
@@ -2329,7 +2329,7 @@
       "mcp": {
         "server": "Acme",
         "context": "/acme-mcp-acl",
-        "upstream": "http://mcp-acme-mobile:8000/mcp",
+        "upstream": "http://mcp-acme:8000/mcp",
         "provider": "mistral",
         "policies": [
           {
@@ -2339,7 +2339,7 @@
               "tools": {
                 "mode": "allow",
                 "exceptions": [
-                  "change_plan"
+                  "{v:mcp.core.tools.change.name}"
                 ]
               }
             }
@@ -2420,7 +2420,7 @@
       "mcp": {
         "server": "Acme",
         "context": "/acme-mcp-args",
-        "upstream": "http://mcp-acme-mobile:8000/mcp",
+        "upstream": "http://mcp-acme:8000/mcp",
         "provider": "mistral",
         "policies": [
           {
@@ -2429,11 +2429,11 @@
             "params": {
               "tools": [
                 {
-                  "name": "change_plan",
+                  "name": "{v:mcp.core.tools.change.name}",
                   "input": {
                     "enabled": true,
                     "showAssessment": true,
-                    "schema": "{\"type\":\"object\",\"properties\":{\"plan\":{\"enum\":[\"Lite\",\"Everyday\",\"Plus\"]}},\"required\":[\"plan\"],\"additionalProperties\":false}"
+                    "schema": "{\"type\":\"object\",\"properties\":{\"{v:mcp.core.key}\":{\"enum\":{v:mcp.core.tools.change.allowed}}},\"required\":[\"{v:mcp.core.key}\"],\"additionalProperties\":false}"
                   }
                 }
               ]
@@ -2514,7 +2514,7 @@
       "mcp": {
         "server": "Acme",
         "context": "/acme-mcp-ratelimit",
-        "upstream": "http://mcp-acme-mobile:8000/mcp",
+        "upstream": "http://mcp-acme:8000/mcp",
         "provider": "mistral",
         "policies": [
           {
@@ -2523,7 +2523,7 @@
             "params": {
               "tools": [
                 {
-                  "name": "change_plan",
+                  "name": "{v:mcp.core.tools.change.name}",
                   "limits": [
                     {
                       "limit": 3,
@@ -2632,7 +2632,7 @@
       "mcp": {
         "server": "Acme",
         "context": "/acme-mcp-audit",
-        "upstream": "http://mcp-acme-mobile:8000/mcp",
+        "upstream": "http://mcp-acme:8000/mcp",
         "provider": "mistral",
         "policies": [
           {
@@ -2704,7 +2704,7 @@
       "mcp": {
         "server": "Acme",
         "context": "/acme-mcp-rewrite",
-        "upstream": "http://mcp-acme-mobile:8000/mcp",
+        "upstream": "http://mcp-acme:8000/mcp",
         "provider": "mistral",
         "policies": [
           {
@@ -2801,9 +2801,9 @@
         "owasp-agentic"
       ],
       "mcp": {
-        "server": "Globetrotter",
+        "server": "{v:mcp.partner.name}",
         "context": "/partner-mcp",
-        "upstream": "http://mcp-partner-offers:8000/mcp",
+        "upstream": "http://mcp-partner:8000/mcp",
         "provider": "mistral",
         "policies": [
           {
@@ -2812,8 +2812,8 @@
             "params": {
               "tools": [
                 {
-                  "name": "get_roaming_offers",
-                  "description": "List the roaming add-ons Globetrotter sells to Acme Mobile customers, with their data allowance, validity and price.",
+                  "name": "{v:mcp.partner.tools.catalogue.name}",
+                  "description": "{v:mcp.partner.tools.catalogue.cleanDescription}",
                   "inputSchema": "{\"type\":\"object\",\"properties\":{}}"
                 }
               ]
@@ -2889,9 +2889,9 @@
       ],
       "vendor": "TypeSafe Jev",
       "mcp": {
-        "server": "Globetrotter",
+        "server": "{v:mcp.partner.name}",
         "context": "/partner-mcp-jev",
-        "upstream": "http://mcp-partner-offers:8000/mcp",
+        "upstream": "http://mcp-partner:8000/mcp",
         "provider": "mistral",
         "policies": [
           {
@@ -2900,8 +2900,8 @@
             "params": {
               "tools": [
                 {
-                  "name": "get_roaming_offers",
-                  "description": "List the roaming add-ons Globetrotter sells to Acme Mobile customers, with their data allowance, validity and price.",
+                  "name": "{v:mcp.partner.tools.catalogue.name}",
+                  "description": "{v:mcp.partner.tools.catalogue.cleanDescription}",
                   "inputSchema": "{\"type\":\"object\",\"properties\":{}}"
                 },
                 {
@@ -2995,7 +2995,7 @@
       "mcp": {
         "server": "Acme",
         "context": "/acme-mcp-jev",
-        "upstream": "http://mcp-acme-mobile:8000/mcp",
+        "upstream": "http://mcp-acme:8000/mcp",
         "provider": "mistral",
         "policies": [
           {
@@ -3004,8 +3004,8 @@
             "params": {
               "tools": [
                 {
-                  "name": "order_replacement_sim",
-                  "scope": "Acme Mobile's customer assistant. It answers questions about plans and the signed-in customer's own account, switches the customer's plan, and sends a replacement SIM for a lost, stolen or broken phone to the customer's address on file: 4 Station Road, Leeds LS1 4DY. Whoever receives a SIM takes over the customer's phone number.",
+                  "name": "{v:mcp.core.tools.order.name}",
+                  "scope": "{v:brand}'s customer assistant. It answers questions about plans and the signed-in customer's own account, switches the customer's plan, and sends a replacement SIM for a lost, stolen or broken phone to the customer's address on file: {v:customer.address}. Whoever receives a SIM takes over the customer's phone number.",
                   "questions": [
                     {
                       "key": "not_the_address_on_file",
@@ -3109,7 +3109,7 @@
       "mcp": {
         "server": "Acme",
         "context": "/acme-mcp",
-        "upstream": "http://mcp-acme-mobile:8000/mcp",
+        "upstream": "http://mcp-acme:8000/mcp",
         "provider": "mistral",
         "policies": []
       },

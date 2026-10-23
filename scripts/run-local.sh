@@ -42,7 +42,7 @@ echo "### 2/5 mcp-servers"
 # two docker-compose.override.yaml files).
 docker network inspect "$DEMO_NAME-mcp" >/dev/null 2>&1 || docker network create "$DEMO_NAME-mcp" >/dev/null
 # Recreated on every run, so the current version of their code is the one running.
-(cd "$ROOT/mcp-servers" && docker compose up -d --force-recreate) >"$LOGS/mcp-servers.log" 2>&1
+(cd "$ROOT/mcp-servers" && docker compose up -d --force-recreate --remove-orphans) >"$LOGS/mcp-servers.log" 2>&1
 # The A2A Gateway page's own gateway and agent, when that page is on
 # (A2A_ENABLED in demo.env).
 if [[ "${A2A_ENABLED:-false}" == true ]]; then
