@@ -1077,6 +1077,10 @@ class Handler(BaseHTTPRequestHandler):
                 "defaultModel": default_model(provider_id),
                 "brand": CONF["BRAND_NAME"],
                 "launcher": launcher_links()})
+        if path == "/api/mcp/tools":
+            return self._mcp_tools((query.get("showcase") or [""])[0])
+        if path == "/api/a2a/card":
+            return self._a2a_card((query.get("showcase") or [""])[0])
         return self._serve_static(path)
 
     def _cookie(self, name):
@@ -1778,6 +1782,52 @@ class Handler(BaseHTTPRequestHandler):
             outcome = "rate_limited" if status == 429 else "refused" if status in (400, 401, 403) else "error"
         return {"name": name, "arguments": args, "gatewayStatus": status,
                 "outcome": outcome, "result": text[:4000]}
+
+    def _a2a_card(self, showcase_id):
+        """The agent card the gateway serves for an A2A card's agent, as any
+        A2A client reads it: its addresses point at the gateway."""
+        entry = load_showcases()["by_id"].get(showcase_id)
+        if not entry or not entry.get("a2a"):
+            return self._json(404, {"error": "no A2A card %r" % showcase_id})
+        url = resolve_showcase(showcase_id)["url"]
+        try:
+            with urllib.request.urlopen(url + "/.well-known/agent-card.json", context=SSL_CONTEXT, timeout=15) as response:
+                card = json.loads(response.read())
+        except (urllib.error.URLError, ValueError) as exc:
+            return self._json(502, {"error": "no agent card at the gateway", "detail": str(getattr(exc, "reason", exc))})
+        return self._json(200, {
+            "via": showcase_context(url, entry=entry),
+            "name": card.get("name"), "description": card.get("description"), "version": card.get("version"),
+            "skills": [{"name": s.get("name"), "description": s.get("description"), "examples": s.get("examples") or []}
+                       for s in card.get("skills") or []],
+            "interfaces": [{"binding": i.get("protocolBinding"), "url": i.get("url")}
+                           for i in card.get("supportedInterfaces") or []]})
+
+    def _mcp_tools(self, showcase_id):
+        """The tools an MCP card's proxy publishes, listed as any MCP client
+        lists them, through the gateway: what the agent sees, once the
+        gateway's policies have hidden, renamed or rewritten them."""
+        entry = load_showcases()["by_id"].get(showcase_id)
+        if not entry or not entry.get("mcp"):
+            return self._json(404, {"error": "no MCP card %r" % showcase_id})
+        url = resolve_showcase(showcase_id)["url"]
+        session = {"token": self._cookie(token_cookie(showcase_id)) if mcp_needs_signin(entry) else None}
+        status, reply = self._mcp_rpc(url, "initialize", {
+            "protocolVersion": "2025-06-18", "capabilities": {},
+            "clientInfo": {"name": "ai-chatbot", "version": "1.0"}}, session)
+        if status == 200:
+            self._mcp_rpc(url, "notifications/initialized", None, session)
+            status, reply = self._mcp_rpc(url, "tools/list", {}, session)
+        found = {"server": entry["mcp"].get("server"), "via": showcase_context(url, entry=entry)}
+        if status == 401:
+            return self._json(200, dict(found, signinRequired=True, tools=[]))
+        if status != 200 or "result" not in reply:
+            return self._json(502, dict(found, error="the MCP proxy did not list its tools",
+                                        gatewayStatus=status or None))
+        return self._json(200, dict(found, tools=[
+            {"name": t["name"], "description": t.get("description", ""),
+             "params": sorted(((t.get("inputSchema") or {}).get("properties") or {}))}
+            for t in reply["result"].get("tools") or []]))
 
     def _mcp_rpc(self, url, method, params, session):
         """One JSON-RPC message to an MCP proxy: (HTTP status, reply). params

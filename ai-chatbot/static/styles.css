@@ -792,7 +792,45 @@ body[data-screen="chat"] #screen-home { display: none; }
 body:not([data-page="llm"]) [data-page-only="llm"],
 body:not([data-page="mcp"]) [data-page-only="mcp"],
 body:not([data-page="a2a"]) [data-page-only="a2a"],
-body:not([data-page="llm"]) .provider { display: none; }
+body:not([data-page="llm"]) .provider:not(.backend) { display: none; }
+body[data-page="llm"] .backend, .backend[hidden] { display: none; }
+/* The server or agent a page's cards use, where the provider picker stands:
+   same look, and a click shows what the gateway publishes for the open card. */
+.backend { margin: 0; position: relative; }
+/* With the A2A tab too, the tabs drop "Gateway" when space runs short, so the
+   card's name keeps its room. */
+@media (max-width: 1600px) {
+  .gw-nav:has(#nav-a2a:not([hidden])) .nav-word { display: none; }
+}
+.backend-name {
+  font: inherit; font-size: 13px; font-weight: 700; color: var(--top-text);
+  background: color-mix(in srgb, var(--top-text) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--top-text) 40%, transparent);
+  border-radius: 999px; padding: 7px 15px; cursor: pointer;
+}
+.backend-name:hover:not(:disabled) { background: color-mix(in srgb, var(--top-text) 20%, transparent); }
+.backend-name:disabled { cursor: default; }
+/* What the gateway publishes for the open card, under its server's name. */
+.backend-panel {
+  position: absolute; top: calc(100% + 10px); left: 0; z-index: 40;
+  width: min(440px, calc(100vw - 28px)); max-height: 60vh; overflow: auto;
+  padding: 14px 16px;
+  background: var(--surface); color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--line-base) 12%, transparent);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--line-base) 18%, transparent);
+  font-size: 13px; line-height: 1.45;
+}
+.backend-panel[hidden] { display: none; }
+.backend-title { display: block; font-size: 14px; margin-bottom: 4px; color: var(--text-strong); }
+.backend-note { margin: 0 0 10px; color: var(--text-muted); }
+.backend-list { list-style: none; margin: 0; padding: 0; }
+.backend-list li + li { margin-top: 10px; padding-top: 10px; border-top: 1px solid color-mix(in srgb, var(--line-base) 10%, transparent); }
+.backend-list code { font-weight: 700; }
+.backend-list p { margin: 4px 0 0; }
+.backend-sep { border: 0; border-top: 1px solid color-mix(in srgb, var(--line-base) 14%, transparent); margin: 14px 0; }
+.backend-subtitle { display: block; margin: 12px 0 6px; color: var(--text-strong); }
+.backend-version { font-weight: 600; color: var(--text-muted); }
 
 .gw-nav { display: flex; gap: 6px; }
 .gw-nav a { text-decoration: none; }

@@ -105,6 +105,108 @@ function setPage(page) {
   document.body.dataset.page = page;
 }
 
+/* Where the provider picker stands on the LLM page, the MCP and A2A pages
+ * name the server or agent the cards use: the open card's, or every one on
+ * the page. A card is written for it, so it is shown, not chosen. */
+function showBackend() {
+  const cards = activeShowcase ? [activeShowcase]
+    : [...showcases.values()].filter((s) => pageOf(s) === activePage);
+  const names = [...new Set(cards.map((s) => (s.a2a && s.a2a.agent) || (s.mcp && s.mcp.server)).filter(Boolean))];
+  const kind = activePage === 'a2a' ? 'Agent' : 'MCP server';
+  document.getElementById('backend-label').textContent = names.length > 1 ? kind + 's' : kind;
+  backendBtn.textContent = names.join(', ');
+  document.getElementById('backend').hidden = !names.length;
+  backendBtn.title = activeShowcase ? 'What the gateway publishes for this card'
+    : 'Each one as it is, with no gateway rule';
+  closeBackend();
+}
+
+const backendBtn = document.getElementById('backend-name');
+const backendPanel = document.getElementById('backend-panel');
+
+function closeBackend() {
+  backendPanel.hidden = true;
+  backendBtn.setAttribute('aria-expanded', 'false');
+}
+
+/* The tools as the gateway lists them to the agent: a hidden tool is not
+ * there, a renamed one shows its new name, a rewritten description its new
+ * text. */
+function mcpToolsHtml(data, title, note) {
+  if (data.signinRequired) {
+    return '<p class="backend-note">Sign in on this card first: the gateway lists these tools to a signed-in user only.</p>';
+  }
+  if (!data.tools) return '<p class="backend-note">The gateway did not answer: ' + escapeHtml(data.error || '') + '</p>';
+  return '<strong class="backend-title">' + escapeHtml(title) + '</strong>'
+    + '<p class="backend-note">' + note + '</p>'
+    + '<ul class="backend-list">' + data.tools.map((tool) => '<li><code>' + escapeHtml(tool.name)
+      + '(' + escapeHtml(tool.params.join(', ')) + ')</code><p>' + escapeHtml(tool.description) + '</p></li>').join('')
+    + '</ul>';
+}
+
+/* The agent's card as the gateway serves it: every address points at the
+ * gateway, so a client that discovers the agent comes back through it. */
+function agentDetailHtml(data, note) {
+  if (!data.name) return '<p class="backend-note">The gateway did not answer: ' + escapeHtml(data.error || '') + '</p>';
+  return '<strong class="backend-title">' + escapeHtml(data.name) + ' <span class="backend-version">v'
+      + escapeHtml(data.version || '?') + '</span></strong>'
+    + '<p class="backend-note">' + note + '</p>'
+    + '<p>' + escapeHtml(data.description || '') + '</p>'
+    + '<strong class="backend-subtitle">Skills</strong><ul class="backend-list">'
+    + data.skills.map((skill) => '<li><code>' + escapeHtml(skill.name) + '</code><p>' + escapeHtml(skill.description)
+      + (skill.examples.length ? '<br><em>"' + skill.examples.map(escapeHtml).join('", "') + '"</em>' : '') + '</p></li>').join('')
+    + '</ul><strong class="backend-subtitle">Addresses, pointed at the gateway</strong><ul class="backend-list">'
+    + data.interfaces.map((i) => '<li><code>' + escapeHtml(i.binding) + '</code><p>' + escapeHtml(i.url) + '</p></li>').join('')
+    + '</ul>';
+}
+
+/* One card's server or agent, as the gateway publishes it for that card. */
+async function detailHtml(card, onCard) {
+  const response = await fetch((card.a2a ? '/api/a2a/card' : '/api/mcp/tools') + '?showcase=' + encodeURIComponent(card.id));
+  const data = await response.json();
+  const via = '<code>' + escapeHtml(data.via || '') + '</code>';
+  if (card.a2a) {
+    return agentDetailHtml(data, onCard ? 'Its agent card, as the gateway serves it through ' + via + '.'
+      : 'Its agent card, through ' + via + ', a proxy with no gateway rule.');
+  }
+  return onCard ? mcpToolsHtml(data, 'Tools the gateway publishes', 'What the agent sees through ' + via + ', after the gateway\'s policies.')
+    : mcpToolsHtml(data, data.server, 'Its tools as it offers them, through ' + via + ', a proxy with no gateway rule.');
+}
+
+/* From a card: what the gateway publishes for it. From a page: each server or
+ * agent as it is, through the card that puts no rule on it. */
+backendBtn.addEventListener('click', async () => {
+  if (!backendPanel.hidden) return closeBackend();
+  const card = activeShowcase;
+  backendPanel.innerHTML = '<p class="backend-note">Asking the gateway...</p>';
+  backendPanel.hidden = false;
+  backendBtn.setAttribute('aria-expanded', 'true');
+  try {
+    let html;
+    if (card) {
+      html = await detailHtml(card, true);
+    } else {
+      const cards = [...showcases.values()].filter((s) => pageOf(s) === activePage && (s.mcp || s.a2a));
+      const backendOf = (s) => (s.a2a ? s.a2a.agent : s.mcp.server);
+      const sections = [];
+      for (const name of [...new Set(cards.map(backendOf))]) {
+        const plain = cards.find((s) => backendOf(s) === name && !((s.a2a || s.mcp).policies || []).length);
+        sections.push(plain ? await detailHtml(plain, false)
+          : '<strong class="backend-title">' + escapeHtml(name) + '</strong><p class="backend-note">Open one of its cards:'
+            + ' each one puts a gateway rule on it, so none shows it as it is.</p>');
+      }
+      html = sections.join('<hr class="backend-sep">');
+    }
+    if (activeShowcase === card) backendPanel.innerHTML = html;
+  } catch (error) {
+    backendPanel.innerHTML = '<p class="backend-note">The gateway did not answer.</p>';
+  }
+});
+document.addEventListener('click', (event) => {
+  if (!backendPanel.hidden && !document.getElementById('backend').contains(event.target)) closeBackend();
+});
+document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeBackend(); });
+
 /* chat.js owns the transcript state, so it registers what to clear. */
 export function onSessionReset(fn) { onReset = fn; }
 
@@ -361,6 +463,7 @@ function mountShowcase(showcase) {
   activeShowcase = showcase;
   document.body.dataset.screen = 'chat';
   setPage(pageOf(showcase));
+  showBackend();
   closeRail();
 
   /* The tile shows the outside service as a label; here it follows the name,
@@ -487,6 +590,7 @@ function mountHome(page) {
   statusEl.title = '';
   activeId = null;
   activeShowcase = null;
+  showBackend();
   document.body.dataset.screen = 'home';
   document.body.dataset.rail = '';
   brandProduct.textContent = 'AI Assistant';

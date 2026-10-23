@@ -24,6 +24,12 @@
         <span class="provider-label">Provider</span>
         <select id="llm-provider"></select>
       </label>
+      <p class="provider backend" id="backend" title="What the gateway relays to on this page: these cards are written for it, so there is nothing to choose.">
+        <span class="provider-label" id="backend-label"></span>
+        <button type="button" class="backend-name" id="backend-name" aria-expanded="false"
+                aria-controls="backend-panel"></button>
+        <span class="backend-panel" id="backend-panel" hidden></span>
+      </p>
       <p class="status" id="status">
         <span class="dot" aria-hidden="true"></span>
         <span id="status-text">via AI Gateway</span>
