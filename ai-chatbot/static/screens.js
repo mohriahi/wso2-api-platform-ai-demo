@@ -336,13 +336,14 @@ function cardHtml(showcase, group) {
   const status = badge(showcase, needs);
   return '<a class="card' + (disabled ? ' is-disabled" aria-disabled="true" tabindex="-1"' : '"')
     + ' href="#/' + encodeURIComponent(showcase.id) + '">'
+    + '<div class="card-head">' + iconHtml((GROUPS[group] || [])[1], 'card-icon')
     + '<h3>' + (ref ? '<span class="ref-code">' + escapeHtml(ref.code) + '</span> ' : '')
     + escapeHtml(showcase.title || showcase.id)
     /* A policy that calls an outside service names that service. */
     + (showcase.vendor ? ' <span class="vendor" title="Third-party policy: calls ' + escapeHtml(showcase.vendor)
         + '">' + escapeHtml(showcase.vendor) + '</span>' : '')
     + (status ? ' ' + status : '')
-    + '</h3>'
+    + '</h3></div>'
     + '<p>' + escapeHtml(showcase.tagline || '') + '</p>'
     + (ref ? '<p class="card-ref">' + scopeBadge(ref) + escapeHtml(branded(ref.text)) + '</p>' : '')
     + '<div class="card-foot">'
@@ -370,11 +371,16 @@ const ICONS = {
   plug: '<path d="M9 2v5M15 2v5M6 7h12v4a6 6 0 0 1-12 0zM12 17v5"/>',
 };
 
+/* A group's icon, on its header and on each of its cards. */
+function iconHtml(icon, cls) {
+  return '<span class="' + cls + '" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+    + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (ICONS[icon] || ICONS.chat) + '</svg></span>';
+}
+
 function groupHeadHtml(name) {
   const [title, icon, text] = GROUPS[name] || [name, 'chat', ''];
   return '<header class="group-head">'
-    + '<span class="group-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
-    + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + ICONS[icon] + '</svg></span>'
+    + iconHtml(icon, 'group-icon')
     + '<div><h2 class="group-title">' + escapeHtml(title) + '</h2>'
     + (text ? '<p class="group-desc">' + escapeHtml(branded(text)) + '</p>' : '') + '</div>'
     + '</header>';
@@ -430,7 +436,7 @@ function renderCards() {
       ? '<div class="notice"><strong>The registry did not load cleanly</strong>'
         + '<p>' + escapeHtml(registryError) + '</p></div>'
       : '')
-    + sorted.map(([name, cards]) => '<section class="card-group">'
+    + sorted.map(([name, cards]) => '<section class="card-group" data-group="' + escapeHtml(name) + '">'
         + (name ? groupHeadHtml(name) : '')
         + '<div class="card-grid">' + cards.map((card) => cardHtml(card, name)).join('') + '</div>'
         + '</section>').join('');
