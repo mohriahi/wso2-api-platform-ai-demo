@@ -209,6 +209,16 @@ body[data-screen="home"] .crumb-card { display: none; }
 
 @keyframes pulse { 50% { opacity: .35; } }
 
+/* On the home page the path shows the gateway itself, not the state of the
+   last card's request: one still answering, refused or failed stays on its
+   card, and shows again there. */
+body[data-screen="home"] .status-text { display: none; }
+body[data-screen="home"] .status .dot {
+  animation: none;
+  background: var(--success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 22%, transparent);
+}
+
 .ghost-btn {
   font: inherit; font-size: 13px; font-weight: 600;
   color: var(--top-text);
