@@ -1,0 +1,32 @@
+# The A2A Gateway page's gateway (A2A_ENABLED in demo.env): the main gateway's
+# own definition and configuration (../ai-gateway), on the first version with
+# A2A, and the agent behind it. scripts/a2a-compose.sh starts it next to the
+# main gateway, which is not touched.
+#
+# It runs on its own: it is not registered in AI Workspace, which does not
+# handle agents yet. The provisioning deploys the agents through its
+# management API. It publishes only the two ports the demo uses, one above the
+# main gateway's.
+services:
+  gateway-controller:
+    image: ghcr.io/wso2/api-platform/gateway-controller:2026.09.24
+    environment:
+      - APIP_GW_CONTROLLER_CONTROLPLANE_HOST=
+      - APIP_GW_CONTROLLER_CONTROLPLANE_TOKEN=
+    ports: !override
+      - "${A2A_GATEWAY_CONTROLLER_REST_PORT}:9090"
+
+  gateway-runtime:
+    image: ghcr.io/wso2/api-platform/gateway-runtime:2026.09.24
+    ports: !override
+      - "${A2A_GATEWAY_HTTPS_PORT}:8443"
+
+  acme-roaming:
+    build: ../a2a/acme-roaming
+    image: ${DEMO_NAME:-ai-demo}-acme-roaming:latest
+    environment:
+      # The address the agent advertises in its card: the one the gateway reaches it on.
+      - PUBLIC_URL=http://acme-roaming:8000
+    mem_limit: 128m
+    networks:
+      - gateway-network

@@ -48,6 +48,9 @@
   --warn:         #E8A200;
   --warn-ink:     #A87400;
 
+  --beta:         #F5B700;
+  --beta-ink:     #3D2A00;
+
   /* Details */
   --code-bg:      #001F66;
   --code-text:    #E6EEFF;
@@ -400,6 +403,12 @@ body {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px;
   padding: 2px 8px; border-radius: 999px;
   background: var(--soft); color: var(--text-strong);
+}
+/* The address an agent card gives, once the gateway has pointed it at itself. */
+.tool-list code.is-endpoint {
+  background: color-mix(in srgb, var(--success) 16%, transparent);
+  color: var(--success-ink);
+  font-weight: 600;
 }
 .tool-call {
   margin: 0 0 8px;
@@ -778,16 +787,25 @@ body {
 body[data-screen="home"] #screen-chat,
 body[data-screen="chat"] #screen-home { display: none; }
 
-/* Two pages, one per gateway. MCP cards fix their own model, so the provider
-   picker has nothing to do there. */
-body[data-page="llm"] [data-page-only="mcp"],
-body[data-page="mcp"] [data-page-only="llm"],
-body[data-page="mcp"] .provider { display: none; }
+/* One page per gateway. MCP and A2A cards fix their own backend, so the
+   provider picker has nothing to do there. */
+body:not([data-page="llm"]) [data-page-only="llm"],
+body:not([data-page="mcp"]) [data-page-only="mcp"],
+body:not([data-page="a2a"]) [data-page-only="a2a"],
+body:not([data-page="llm"]) .provider { display: none; }
 
 .gw-nav { display: flex; gap: 6px; }
 .gw-nav a { text-decoration: none; }
+.gw-nav a[hidden] { display: none; }
+.beta {
+  display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+  vertical-align: 1px;
+  background: var(--beta); color: var(--beta-ink);
+}
 body[data-page="llm"] #nav-llm,
-body[data-page="mcp"] #nav-mcp {
+body[data-page="mcp"] #nav-mcp,
+body[data-page="a2a"] #nav-a2a {
   background: var(--top-text);
   border-color: var(--top-text);
   color: var(--top-bg);
@@ -1441,6 +1459,7 @@ body[data-rail="none"] .workspace > .shell { grid-template-columns: minmax(0, va
 
 @media (max-width: 640px) {
   .gw-nav .ghost-btn { padding: 6px 11px; font-size: 12px; }
+  .nav-word { display: none; }
   .status { display: none; }
   .brand-divider, .brand-product { display: none; }
   .controlbar-inner { padding: 8px 14px; gap: 8px; }

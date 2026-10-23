@@ -82,9 +82,9 @@ from gateway_settings import missing_gateway_settings
 from platform_api import (
     ROOT, PROVIDERS, DEFAULT_PROVIDER_ID,
     probe_gateway, controller_api, api, login, deploy, read_secret, provider_key, upsert_shared_provider, budget_for,
-    budget_duration, showcase, showcases,
+    budget_duration, showcase, showcases, request,
 )
-from target import DEMO_ENV, setting, WORKSPACE_URL, PROJECT_ID, LLM_GATEWAY, MCP_GATEWAY, Gateway
+from target import DEMO_ENV, setting, WORKSPACE_URL, PROJECT_ID, LLM_GATEWAY, MCP_GATEWAY, Gateway, A2A_ENABLED, A2A_GATEWAY
 
 # =============================================================================
 # 1. Configuration. Addresses are in target.py, providers in providers.json.
@@ -778,7 +778,13 @@ ALL_LANES = {lid: lane for lid, lane in ALL_LANES.items() if lane["base_id"] not
 # platform's API keys cover LLM resources only, so these proxies are open.
 MCP_PROXIES = {card["id"]: card for card in showcases() if card.get("mcp") and card["id"] not in LEFT_OUT}
 
-DEFAULT_IDS = [lid for lid, lane in ALL_LANES.items() if lane["config"]] + list(MCP_PROXIES)
+# A2A agents, when A2A_ENABLED is on: one per showcases.json card with an
+# "a2a" block. AI Workspace does not handle agents yet: they are deployed on
+# the A2A gateway itself (a2a/).
+A2A_AGENTS = {card["id"]: card for card in showcases()
+              if A2A_ENABLED and card.get("a2a") and card["id"] not in LEFT_OUT}
+
+DEFAULT_IDS = [lid for lid, lane in ALL_LANES.items() if lane["config"]] + list(MCP_PROXIES) + list(A2A_AGENTS)
 
 
 # =============================================================================
@@ -1023,6 +1029,37 @@ def upsert_mcp_proxy(card: dict):
         "policies": mcp.get("policies", []),
         **({"capabilities": capabilities} if capabilities else {}),
     }, "MCP proxy")
+
+
+def write_agent(card: dict, state: dict):
+    """An A2A agent proxy, deployed on the A2A gateway itself through its
+    management API: AI Workspace does not handle agents yet. Both A2A bindings
+    are exposed, and the agent's card is relayed with its addresses pointed at
+    the gateway, so a client that discovers the agent from it comes back
+    through the gateway and its policies."""
+    a2a = card["a2a"]
+    body = {"apiVersion": "gateway.api-platform.wso2.com/v1", "kind": "Agent",
+            "metadata": {"name": card["id"]},
+            "spec": {"displayName": " - ".join(filter(None, (a2a.get("agent"), card.get("title")))),
+                     "version": "v1.0", "context": a2a["context"], "upstream": {"url": a2a["upstream"]},
+                     "a2a": {"protocolVersion": "1.0",
+                             "operationConfigs": {"transports": [
+                                 {"protocolBinding": "JSONRPC", "pathPrefix": "/"},
+                                 {"protocolBinding": "HTTP+JSON", "pathPrefix": "/v1"}],
+                                 "policies": a2a.get("policies", [])},
+                             "agentCard": {"public": {"mode": "passthrough", "rewriteUrls": True}}}}}
+    exists = controller_api(A2A_GATEWAY, "GET", f"/agents/{card['id']}")[0] == 200
+    status, resp = (controller_api(A2A_GATEWAY, "PUT", f"/agents/{card['id']}", body) if exists
+                    else controller_api(A2A_GATEWAY, "POST", "/agents", body))
+    if status not in (200, 201):
+        sys.exit(f"  agent proxy failed: {status} {resp}")
+    print("  agent proxy %s on the gateway" % ("updated" if exists else "created"))
+    for _ in range(30):
+        if request("GET", f"{A2A_GATEWAY.url}{a2a['context']}/.well-known/agent-card.json")[0] == 200:
+            print("  agent card served by the gateway")
+            return
+        time.sleep(1)
+    sys.exit(f"  the gateway does not serve {a2a['context']}/.well-known/agent-card.json yet")
 
 
 def issue_key(lane_id: str) -> tuple[str, str]:
@@ -1275,7 +1312,9 @@ def check(work: list, skip_existing: bool) -> bool:
     print(f"  demo resources go into project {PROJECT_ID!r} "
           f"({'exists, reused' if PROJECT_ID in projects else 'will be created'})")
 
-    existing = {r: _existing(r, list(projects)) for r in WRITERS}
+    existing = {r: _existing(r, list(projects)) for r in WRITERS if r != "agents"}
+    # A2A agents live on the gateway, not in AI Workspace.
+    existing["agents"] = {w.id: {"displayName": w.id} for w in work if w.resource == "agents" and exists(w)}
     context_owner = {}
     for r in ("llm-providers", "llm-proxies", "mcp-proxies"):
         for rid, item in existing[r].items():
@@ -1355,24 +1394,34 @@ Write = namedtuple("Write", "resource id context item")
 
 # The function that writes each kind of resource.
 WRITERS = {"applications": write_app, "llm-providers": write_provider,
-           "llm-proxies": write_lane, "mcp-proxies": write_mcp_proxy}
+           "llm-proxies": write_lane, "mcp-proxies": write_mcp_proxy, "agents": write_agent}
 
 
 def plan(requested: list) -> list:
-    """What a run writes, in order: applications, providers, lanes, then MCP
-    proxies. Only the providers the requested lanes need."""
+    """What a run writes, in order: applications, providers, lanes, MCP
+    proxies, then A2A agents. Only the providers the requested lanes need."""
     lanes = [ALL_LANES[r] for r in requested if r in ALL_LANES]
     cards = [MCP_PROXIES[r] for r in requested if r in MCP_PROXIES]
+    agents = [A2A_AGENTS[r] for r in requested if r in A2A_AGENTS]
     providers = [p for p in PROVIDERS if p["id"] in {lane["providerId"] for lane in lanes}]
     return ([Write("applications", p["appId"], None, p) for p in providers]
             + [Write("llm-providers", p["providerId"], p["providerContext"], p) for p in providers]
             + [Write("llm-proxies", lane["id"], lane["context"], lane) for lane in lanes]
-            + [Write("mcp-proxies", card["id"], card["mcp"]["context"], card) for card in cards])
+            + [Write("mcp-proxies", card["id"], card["mcp"]["context"], card) for card in cards]
+            + [Write("agents", card["id"], card["a2a"]["context"], card) for card in agents])
+
+
+def exists(w) -> bool:
+    """Whether a resource of the plan exists: an A2A agent on the gateway,
+    anything else in AI Workspace."""
+    if w.resource == "agents":
+        return controller_api(A2A_GATEWAY, "GET", f"/agents/{w.id}")[0] == 200
+    return exists_in_workspace(w.resource, w.id)
 
 
 def without_existing(work: list) -> list:
     """For --skip-existing: drops from the plan what already exists."""
-    kept = [w for w in work if exists_in_workspace(w.resource, w.id)]
+    kept = [w for w in work if exists(w)]
     for w in kept:
         print(f"### {w.resource} {w.id} exists, kept as is")
     return [w for w in work if w not in kept]
@@ -1388,9 +1437,9 @@ def main():
     skip_existing = "--skip-existing" in flags
 
     requested = [a for a in args if not a.startswith("--")] or DEFAULT_IDS
-    unknown = [r for r in requested if r not in ALL_LANES and r not in MCP_PROXIES]
+    unknown = [r for r in requested if r not in ALL_LANES and r not in MCP_PROXIES and r not in A2A_AGENTS]
     if unknown:
-        sys.exit(f"unknown or left out: {unknown}\nKnown: {list(ALL_LANES) + list(MCP_PROXIES)}"
+        sys.exit(f"unknown or left out: {unknown}\nKnown: {list(ALL_LANES) + list(MCP_PROXIES) + list(A2A_AGENTS)}"
                  + "".join(f"\nLeft out: {card_id} needs {need}" for card_id, need in LEFT_OUT.items()))
     work = plan(requested)
 

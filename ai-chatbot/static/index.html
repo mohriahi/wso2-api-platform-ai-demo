@@ -29,8 +29,9 @@
         <span id="status-text">via AI Gateway</span>
       </p>
       <nav class="gw-nav" aria-label="Gateway">
-        <a class="ghost-btn" id="nav-llm" href="#/llm">LLM Gateway</a>
-        <a class="ghost-btn" id="nav-mcp" href="#/mcp">MCP Gateway</a>
+        <a class="ghost-btn" id="nav-llm" href="#/llm">LLM<span class="nav-word"> Gateway</span></a>
+        <a class="ghost-btn" id="nav-mcp" href="#/mcp">MCP<span class="nav-word"> Gateway</span></a>
+        <a class="ghost-btn" id="nav-a2a" href="#/a2a" hidden>A2A<span class="nav-word"> Gateway</span><span class="beta">Beta</span></a>
       </nav>
       <div class="launcher" id="launcher" hidden>
         <button type="button" class="launcher-btn" id="launcher-btn" aria-haspopup="true"
@@ -67,6 +68,13 @@
          Gateway, with its policy attached. The assistant only sees the tools
          the proxy lists and calls them through it, so the gateway's rules
          decide what it can do.</p>
+    </div>
+    <div class="col-main home-head" data-page-only="a2a">
+      <h1>Which A2A capability are you showing?</h1>
+      <p>Here the assistant is an A2A client: it hands the customer's question
+         to another agent through that agent's <strong>own agent proxy</strong>
+         on the WSO2 AI Gateway. The gateway serves the agent's card, pointing
+         every client at itself, and checks each message with the card's policy.</p>
     </div>
     <div class="col-main cards" id="cards"></div>
   </div>

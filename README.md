@@ -99,6 +99,35 @@ reply, with what the gateway did.
 The last two need an OpenID Connect identity provider (Asgardeo, WSO2 Identity
 Server or any other): see the [IDP Setup](.docs/mcp-identity-provider.md).
 
+**A2A Gateway page (beta, off by default).**
+
+> [!IMPORTANT]
+> A2A is not officially released in the WSO2 AI Gateway yet. This page is off
+> by default and runs on a separate preview gateway. Once A2A is officially
+> released, it will be merged into the main gateway.
+
+With `A2A_ENABLED=true` in `demo.env`, a third page appears. There, the
+assistant does not answer by itself: it passes the customer's question to
+another agent, Acme's roaming agent (`a2a/acme-roaming/`), through the gateway.
+
+The gateway sits between the two agents:
+
+- it publishes the roaming agent's card, which tells other agents how to reach
+  it, with every address pointing at the gateway, so an agent that finds it
+  always goes through the gateway;
+- it applies its rules to every message sent to the agent.
+
+| A2A showcase | What it shows |
+|---|---|
+| Agent behind the gateway | The assistant finds the roaming agent from its card on the gateway, then asks it the question |
+| Guardrail on agent messages | The Prompt injection rule, between agents: the attack is stopped before the roaming agent reads it |
+
+How it runs: A2A needs a newer gateway version (2026.09.24) than the rest of
+the demo. This page therefore starts a second gateway next to the main one,
+with the same settings and its ports one above (`a2a/`). The main gateway is
+not touched. AI Workspace does not manage agents yet, so this second gateway
+is not registered in it: the setup deploys the agents on it directly.
+
 The LLM Gateway page also gathers its cards under the **OWASP Top 10 for LLMs
 (2026)**, the MCP Gateway page under the **OWASP Top 10 for Agentic
 Applications**, and the LLM Gateway page under **Compliance (EU AI Act)**, with

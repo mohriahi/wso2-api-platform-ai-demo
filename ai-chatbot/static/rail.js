@@ -273,7 +273,8 @@ export function evaluateExpect(expect, turn) {
     }
     return { ok: true, text: turn.afterModel
       ? 'the answer was blocked at the gateway before the customer saw it'
-      : 'blocked at the gateway: 0 tokens, the model was never called' };
+      : turn.agent ? 'blocked at the gateway: the agent never saw the message'
+        : 'blocked at the gateway: 0 tokens, the model was never called' };
   }
 
   if (expect.gatewayStatus) {

@@ -142,6 +142,14 @@ const TOOL_OUTCOMES = {
   error:        ['!', 'failed'],
 };
 
+/* The agent card the gateway served this turn: which agent, and the address
+ * it gives for JSON-RPC, which the gateway has pointed at itself. */
+export function agentCardHtml(card) {
+  return '<p class="tool-list"><span>Agent card served by the gateway</span>'
+    + '<code>' + escapeHtml(card.name || '?') + '</code>'
+    + '<code class="is-endpoint">' + escapeHtml(card.binding + ' ' + card.url) + '</code></p>';
+}
+
 /* The tools the gateway offered the agent this turn, one line per MCP server. */
 export function toolListHtml(servers) {
   return servers.map((server) => '<p class="tool-list"><span>'

@@ -91,12 +91,14 @@ let registryError = null;
 let brand = '';
 let onReset = null;
 
-/* Two home pages, one per gateway: a card with an "mcp" block belongs to the
- * MCP Gateway page, every other card to the LLM Gateway page. */
-const PAGES = ['llm', 'mcp'];
+/* One home page per gateway: a card with an "mcp" block belongs to the MCP
+ * Gateway page, one with an "a2a" block to the A2A Gateway page (only with
+ * A2A_ENABLED in demo.env), every other card to the LLM Gateway page. */
+const PAGES = ['llm', 'mcp', 'a2a'];
 let activePage = 'llm';
+let a2aEnabled = false;
 
-function pageOf(showcase) { return showcase.mcp ? 'mcp' : 'llm'; }
+function pageOf(showcase) { return showcase.a2a ? 'a2a' : showcase.mcp ? 'mcp' : 'llm'; }
 
 function setPage(page) {
   activePage = page;
@@ -162,6 +164,8 @@ export async function loadRegistry() {
     registryError = (data.registry && data.registry.error) || null;
     showcases.clear();
     for (const item of data.showcases || []) showcases.set(item.id, item);
+    a2aEnabled = Boolean(data.a2a);
+    document.getElementById('nav-a2a').hidden = !a2aEnabled;
     GROUPS = Object.fromEntries((data.groups || []).map((g) => [g.id, [g.title, g.icon, g.text, g.order]]));
   } catch (error) {
     registryError = 'could not load /api/showcases: ' + error;
@@ -246,6 +250,7 @@ const ICONS = {
   gauge: '<path d="M12 14l4-4M3.3 18a9 9 0 1 1 17.4 0"/>',
   shield: '<path d="M12 3l8 3v6c0 5-3.4 8.4-8 9-4.6-.6-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  agents: '<circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.7 10.6l6.6-3.2M8.7 13.4l6.6 3.2"/>',
   wrench: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-2.4z"/>',
   chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>',
   alert: '<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/>',
@@ -366,7 +371,9 @@ function mountShowcase(showcase) {
 
   /* The status line names the provider, so the reminder that these cards are
    * different providers, not different prompts, is always on screen. */
-  statusEl.title = showcase.mcp
+  statusEl.title = showcase.a2a
+    ? 'The agent proxy on the gateway this card\'s messages go through, with its policy attached.'
+    : showcase.mcp
     ? 'The MCP proxy on the gateway this card\'s tool calls go through, with its policy attached.'
     : STATUS_TITLE;
   setIdleStatus(showcase.gatewayContext ? 'via ' + showcase.gatewayContext : 'no provider wired');
@@ -498,7 +505,7 @@ export function applyHash() {
   catch (e) { return mountHome('llm'); }
   const showcase = showcases.get(id);
   if (!showcase) {
-    mountHome(PAGES.includes(id) ? id : 'llm');
+    mountHome(PAGES.includes(id) && (id !== 'a2a' || a2aEnabled) ? id : 'llm');
     return;
   }
   mountShowcase(showcase);
