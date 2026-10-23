@@ -188,7 +188,7 @@ const NO_POLICY = { text: 'No gateway policy', policy: false };
 /* One card's server or agent, as the gateway publishes it for that card. */
 async function detailHtml(card, onCard) {
   /* The card's selector can choose which agent card is read: the details follow it. */
-  const choice = onCard && card.a2a && !selectorBox.hidden ? '&choice=' + encodeURIComponent(selectorSelect.value) : '';
+  const choice = card.a2a && !selectorBox.hidden ? '&choice=' + encodeURIComponent(selectorSelect.value) : '';
   const response = await fetch((card.a2a ? '/api/a2a/card' : '/api/mcp/tools') + '?showcase=' + encodeURIComponent(card.id) + choice);
   const data = await response.json();
   if (card.a2a) return agentDetailHtml(data, card.a2a.agent, onCard ? { text: 'Served by the gateway', policy: true } : NO_POLICY);
@@ -630,6 +630,8 @@ function mountHome(page) {
   statusEl.title = 'Every message of these cards goes through the WSO2 AI Gateway.';
   activeId = null;
   activeShowcase = null;
+  /* No card is open, so no card's selector applies. */
+  selectorBox.hidden = true;
   showBackend();
   document.body.dataset.screen = 'home';
   placeFlow(true);
