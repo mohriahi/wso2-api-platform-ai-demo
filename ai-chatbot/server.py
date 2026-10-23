@@ -1311,7 +1311,7 @@ class Handler(BaseHTTPRequestHandler):
             conversation = payload.get("conversation")
             if not isinstance(conversation, str) or not CONVERSATION_RE.match(conversation):
                 conversation = None
-            return self._a2a_turn(showcase, messages, conversation)
+            return self._a2a_turn(showcase, messages, conversation, payload.get("choice"))
         if entry.get("mcp"):
             conversation = payload.get("conversation")
             if not isinstance(conversation, str) or not CONVERSATION_RE.match(conversation):
@@ -1542,7 +1542,7 @@ class Handler(BaseHTTPRequestHandler):
     # card gives, which the gateway has pointed at itself. The agent's reply is
     # replayed in the usual event shape, after one "agent_card" event.
 
-    def _a2a_turn(self, showcase, messages, conversation):
+    def _a2a_turn(self, showcase, messages, conversation, choice=None):
         base = showcase["url"]
         try:
             with urllib.request.urlopen(base + "/.well-known/agent-card.json",
@@ -1562,19 +1562,28 @@ class Handler(BaseHTTPRequestHandler):
                    "parts": [{"text": messages[-1]["content"]}]}
         if conversation:
             message["contextId"] = conversation  # one A2A context per chat
+        headers = {"content-type": "application/json", "A2A-Version": "1.0"}
+        # A card whose agent only answers known agents: the key the gateway
+        # issued goes with the message, unless the selector plays an unknown
+        # agent (any value but the first).
+        selector = showcase.get("selector")
+        known = not selector or choice in (None, selector["values"][0])
+        if showcase["apiKey"] and showcase["keySource"] == "showcase" and known:
+            headers[CONF["GATEWAY_API_KEY_HEADER"]] = showcase["apiKey"]
         request = urllib.request.Request(endpoint, method="POST", data=json.dumps({
             "jsonrpc": "2.0", "id": next(_RPC_IDS), "method": "SendMessage",
-            "params": {"message": message}}).encode(),
-            headers={"content-type": "application/json", "A2A-Version": "1.0"})
+            "params": {"message": message}}).encode(), headers=headers)
         try:
             with urllib.request.urlopen(request, context=SSL_CONTEXT, timeout=60) as response:
                 headers, raw = response.headers, response.read().decode("utf-8", "replace")
         except urllib.error.HTTPError as exc:
             body = exc.read().decode("utf-8", "replace")
             self.log_message("[%s] gateway HTTP %d: %s", showcase["id"], exc.code, body[:400])
-            outcome = "policy_block" if guardrail_verdict(body) else classify_gateway_error(
+            # A 401 is the gateway turning away an agent it does not know: a block, not a fault.
+            outcome = "policy_block" if guardrail_verdict(body) or exc.code == 401 else classify_gateway_error(
                 exc.code, exc.headers, body, showcase)
-            payload = {"error": "the gateway did not pass the message to the agent", "gatewayStatus": exc.code,
+            payload = {"error": "the gateway refused an agent it does not know: no valid key" if exc.code == 401
+                       else "the gateway did not pass the message to the agent", "gatewayStatus": exc.code,
                        "gatewayOutcome": outcome, "showcase": showcase["id"], "gatewayBody": body[:4000]}
             payload.update(gateway_meta(exc.headers))
             # A card's own limit (a rate limit on the agent) is not a cost budget.

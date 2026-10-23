@@ -3268,6 +3268,87 @@
       }
     },
     {
+      "id": "a2a-agent-auth",
+      "group": "agent-governance",
+      "a2a": {
+        "agent": "Acme Roaming Agent",
+        "context": "/acme-roaming-auth",
+        "upstream": "http://acme-roaming:8000",
+        "policies": [
+          {
+            "name": "api-key-auth",
+            "version": "v1",
+            "params": {
+              "key": "X-API-Key",
+              "in": "header"
+            }
+          }
+        ]
+      },
+      "title": "Only known agents",
+      "tagline": "Only an agent with a key from the gateway can talk to the roaming agent; anyone can still read its card.",
+      "capability": "api-key-auth v1.2.1",
+      "status": "ready",
+      "blockedBy": [],
+      "policies": [
+        "api-key-auth v1.2.1"
+      ],
+      "emphasis": [
+        "blocked"
+      ],
+      "selector": {
+        "label": "Calling agent",
+        "header": "x-calling-agent",
+        "values": [
+          "acme-assistant",
+          "unknown-agent"
+        ],
+        "hint": "Which agent is calling: Acme's assistant holds a key the gateway issued, an unknown agent has none.",
+        "note": "the gateway checks the key each agent holds"
+      },
+      "intro": {
+        "chips": []
+      },
+      "steps": [
+        {
+          "n": 1,
+          "title": "A known agent",
+          "operator": {
+            "text": "Set Calling agent to acme-assistant, above the conversation."
+          },
+          "sends": [
+            {
+              "ask": "I'm going to Spain in May. Will my phone work there?",
+              "expect": {
+                "text": "The roaming agent answers: Acme's assistant sent the key the gateway issued for it."
+              }
+            }
+          ]
+        },
+        {
+          "n": 2,
+          "title": "An unknown agent",
+          "operator": {
+            "text": "Switch Calling agent to unknown-agent."
+          },
+          "sends": [
+            {
+              "ask": "I'm going to Spain in May. Will my phone work there?",
+              "expect": {
+                "gatewayStatus": 401,
+                "text": "The gateway answers 401: no valid key, so the message never reaches the roaming agent."
+              }
+            }
+          ],
+          "notes": "Reading the agent card is still open to anyone: an agent can discover the roaming agent, only a known one can talk to it."
+        }
+      ],
+      "notes": "api-key-auth on every A2A operation of the agent proxy, not on its public card route. The A2A gateway issues the key itself (POST /agents/{id}/api-keys on its management API); provision_showcases.py revokes the older ones, writes the new one to secrets/gateway-keys.env and waits until the gateway accepts it. The selector stands in for which agent is calling: with acme-assistant the app sends the key, with unknown-agent it sends none.",
+      "gateway": {
+        "stream": false
+      }
+    },
+    {
       "id": "a2a-guardrail",
       "group": "agent-governance",
       "a2a": {

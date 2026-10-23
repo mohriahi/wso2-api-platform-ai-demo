@@ -494,6 +494,8 @@ function mountShowcase(showcase) {
   selectorBox.hidden = !sel;
   selectorBox.title = (sel && sel.hint) || '';
   selectorLabel.textContent = sel ? sel.label : '';
+  /* What the selector stands in for: a card can say, the customer's token by default. */
+  document.getElementById('selector-note').textContent = (sel && sel.note) || 'from the customer\'s token in production';
   selectorSelect.innerHTML = (sel ? sel.values : []).map((v) => '<option value="' + escapeHtml(v) + '">'
     + escapeHtml(v.charAt(0).toUpperCase() + v.slice(1)) + '</option>').join('');
   /* Its colour changes off the first value, so a switch shows from across the room. */
