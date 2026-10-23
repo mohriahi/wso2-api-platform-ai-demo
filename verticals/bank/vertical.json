@@ -26,7 +26,22 @@
     "code-bg": "#1C1B19",
     "track": "#EAE1CF",
     "off": "#D9CCB2",
-    "disabled": "#D9CCB2"
+    "disabled": "#D9CCB2",
+    "header-bg": "#FFFFFF",
+    "header-text": "#1C1B19",
+    "brand-color": "#A8823A",
+    "header-rule": "#1C1B19",
+    "header-line": "#E9E1D0",
+    "group-routing-and-resilience": "#A8823A",
+    "group-cost-and-performance": "#7D6A35",
+    "group-safety": "#3A3530",
+    "group-identity": "#B0703A",
+    "group-tool-governance": "#8C5A2B",
+    "group-third-party-policies": "#C29B4A",
+    "group-agent-governance": "#5C4A2A",
+    "group-owasp": "#8A4B32",
+    "group-compliance-eu-ai-act": "#2F2A24",
+    "group-baseline": "#8A8175"
   },
   "customer": {
     "name": "Sam Taylor",

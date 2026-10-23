@@ -35,6 +35,12 @@
   --accent-deep-hi: #00698F;
   --user-bg:      #0033A0;
   --user-text:    #FFFFFF;
+  /* The header can differ from the dark bars below it (a business's theme sets
+     header-*). These keep the bars' own colours for the parts inside it. */
+  --header-bg:    var(--top-bg);
+  --header-text:  var(--top-text);
+  --bar-bg:       var(--top-bg);
+  --bar-text:     var(--top-text);
 
   /* Meaning: what passed, what the gateway stopped on purpose, what failed */
   --success:      #12B76A;
@@ -106,9 +112,13 @@ body {
 /* ---------- header ---------- */
 
 .topbar {
+  --top-bg: var(--header-bg);
+  --top-text: var(--header-text);
   background: var(--top-bg);
   color: var(--top-text);
   flex: 0 0 auto;
+  /* A business's theme may add a dark rule above and a line below. */
+  box-shadow: inset 0 6px 0 var(--header-rule, transparent), 0 1px 0 var(--header-line, transparent);
 }
 
 /* Line 1: the brand, the gateway pages, the consoles. */
@@ -128,7 +138,7 @@ body {
   line-height: 1;
   white-space: nowrap;
   flex-shrink: 0;
-  color: inherit;
+  color: var(--brand-color, inherit);
   text-decoration: none;
 }
 .wordmark:hover { opacity: .85; }
@@ -137,6 +147,8 @@ body {
 /* On the home page, the bar's path moves under the title: no second bar. */
 body[data-screen="home"] .contextbar { display: none; }
 .contextbar {
+  --top-bg: var(--bar-bg);
+  --top-text: var(--bar-text);
   background: color-mix(in srgb, var(--top-bg) 82%, black);
   border-top: 1px solid color-mix(in srgb, var(--top-text) 12%, transparent);
 }
@@ -995,7 +1007,8 @@ body[data-rail="none"] .workspace > .shell { grid-template-columns: minmax(0, va
 .cards { padding: 22px 20px 40px; }
 
 /* Each group has its colour: on its icon, its cards' top edge and hover, and a
-   light tint behind the whole group, so the eye knows which theme it is in. */
+   light tint behind the whole group, so the eye knows which theme it is in.
+   A business's theme may set its own (group-<id>). */
 .card-group {
   --group: var(--text-strong);
   padding: 22px 22px 24px;
@@ -1003,17 +1016,17 @@ body[data-rail="none"] .workspace > .shell { grid-template-columns: minmax(0, va
   background: color-mix(in srgb, var(--group) 4%, transparent);
 }
 .card-group + .card-group { margin-top: 28px; }
-.card-group[data-group="routing-and-resilience"] { --group: #2563EB; }
-.card-group[data-group="cost-and-performance"]   { --group: #0E9F6E; }
-.card-group[data-group="safety"]                 { --group: #7C3AED; }
-.card-group[data-group="identity"]               { --group: #DB2777; }
-.card-group[data-group="tool-governance"]        { --group: #EA580C; }
-.card-group[data-group="third-party-policies"]   { --group: #0891B2; }
-.card-group[data-group="agent-governance"]       { --group: #4F46E5; }
+.card-group[data-group="routing-and-resilience"] { --group: var(--group-routing-and-resilience, #2563EB); }
+.card-group[data-group="cost-and-performance"]   { --group: var(--group-cost-and-performance, #0E9F6E); }
+.card-group[data-group="safety"]                 { --group: var(--group-safety, #7C3AED); }
+.card-group[data-group="identity"]               { --group: var(--group-identity, #DB2777); }
+.card-group[data-group="tool-governance"]        { --group: var(--group-tool-governance, #EA580C); }
+.card-group[data-group="third-party-policies"]   { --group: var(--group-third-party-policies, #0891B2); }
+.card-group[data-group="agent-governance"]       { --group: var(--group-agent-governance, #4F46E5); }
 .card-group[data-group="owasp-llm"],
-.card-group[data-group="owasp-agentic"]          { --group: #B45309; }
-.card-group[data-group="compliance-eu-ai-act"]   { --group: #1E3A8A; }
-.card-group[data-group="baseline"]               { --group: #64748B; }
+.card-group[data-group="owasp-agentic"]          { --group: var(--group-owasp, #B45309); }
+.card-group[data-group="compliance-eu-ai-act"]   { --group: var(--group-compliance-eu-ai-act, #1E3A8A); }
+.card-group[data-group="baseline"]               { --group: var(--group-baseline, #64748B); }
 
 /* A group's header: icon, name, and what it brings. */
 .group-head {
