@@ -9,6 +9,7 @@
 #   3. Start AI Workspace (the control plane).
 #   4. Start the AI Gateway (the data plane).
 #   5. Start the chatbot.
+#   6. When DEMO_VERTICAL changed, set the gateway up for the new business.
 #
 # Needs api-platform.env in ai-workspace/ and ai-gateway/ (reset-and-setup.sh
 # creates them from their .example) and ai-chatbot/config.env.
@@ -24,8 +25,8 @@ source "$ROOT/scripts/tools.sh"
 # Each container's output goes to a log file here, not to the terminal.
 LOGS="$ROOT/.logs"
 
-# ==== Step 1/5: read the settings =============================================
-echo "### 1/5 settings"
+# ==== Step 1/6: read the settings =============================================
+echo "### 1/6 settings"
 load_demo_env "$ROOT"   # this machine's settings, created on the first run (see tools.sh)
 resolve_python   # the Python 3 to use (see tools.sh)
 resolve_analytics "$ROOT"   # says in the terminal when analytics stay off (see tools.sh)
@@ -36,8 +37,8 @@ require_env "$ROOT/ai-workspace/api-platform.env"
 require_env "$ROOT/ai-gateway/api-platform.env"
 require_env "$ROOT/ai-chatbot/config.env"
 
-# ==== Step 2/5: MCP servers ===================================================
-echo "### 2/5 mcp-servers"
+# ==== Step 2/6: MCP servers ===================================================
+echo "### 2/6 mcp-servers"
 # The MCP servers' network, shared with the gateway and AI Workspace (see the
 # two docker-compose.override.yaml files).
 docker network inspect "$DEMO_NAME-mcp" >/dev/null 2>&1 || docker network create "$DEMO_NAME-mcp" >/dev/null
@@ -51,20 +52,30 @@ else
   "$ROOT/scripts/a2a-compose.sh" down >"$LOGS/a2a.log" 2>&1
 fi
 
-# ==== Step 3/5: AI Workspace (control plane) ==================================
-echo "### 3/5 ai-workspace"
+# ==== Step 3/6: AI Workspace (control plane) ==================================
+echo "### 3/6 ai-workspace"
 (cd "$ROOT/ai-workspace" && docker compose up -d --wait) >"$LOGS/ai-workspace.log" 2>&1
 
-# ==== Step 4/5: AI Gateway (data plane) =======================================
-echo "### 4/5 ai-gateway"
+# ==== Step 4/6: AI Gateway (data plane) =======================================
+echo "### 4/6 ai-gateway"
 "$ROOT/scripts/gateway-compose.sh" up -d >"$LOGS/ai-gateway.log" 2>&1
 
-# ==== Step 5/5: chatbot =======================================================
-echo "### 5/5 ai-chatbot"
+# ==== Step 5/6: chatbot =======================================================
+echo "### 5/6 ai-chatbot"
 # Stops the previous chatbot first, or it would keep the port and the new one
 # could not start.
 "$ROOT/scripts/stop-ai-chatbot.sh"
 (cd "$ROOT/ai-chatbot" && nohup "$PYTHON" server.py >"$LOGS/ai-chatbot.log" 2>&1 &)
+
+# ==== Step 6/6: the business ==================================================
+# Every card's wording, the policies' values and the MCP and A2A backends come
+# with the business (DEMO_VERTICAL, verticals/). When it is not the one the
+# gateway was last set up for, the provisioning runs again (a few minutes).
+echo "### 6/6 business: ${DEMO_VERTICAL:-mobile}"
+if [[ "$(cat "$ROOT/verticals/.provisioned" 2>/dev/null)" != "${DEMO_VERTICAL:-mobile}" ]]; then
+  echo "  the gateway is not set up for it yet: provisioning (log: $LOGS/provisioning.log)"
+  "$PYTHON" "$ROOT/scripts/python/provision_showcases.py" >"$LOGS/provisioning.log" 2>&1
+fi
 
 echo
 echo "done. Everything is up:"

@@ -16,6 +16,8 @@ from target import ROOT, setting
 
 VERTICAL_ID = setting("DEMO_VERTICAL", "mobile")
 FOLDER = ROOT / "verticals" / VERTICAL_ID
+# The business the gateway was last fully set up for (provision_showcases.py).
+PROVISIONED = ROOT / "verticals" / ".provisioned"
 
 
 def vertical() -> dict:

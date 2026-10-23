@@ -79,7 +79,7 @@ from collections import namedtuple
 from urllib.parse import urlsplit
 
 from gateway_settings import missing_gateway_settings
-from vertical import policy
+from vertical import PROVISIONED, VERTICAL_ID, policy
 from platform_api import (
     ROOT, PROVIDERS, DEFAULT_PROVIDER_ID,
     probe_gateway, controller_api, api, login, deploy, read_secret, provider_key, upsert_shared_provider, budget_for,
@@ -1031,6 +1031,7 @@ def write_agent(card: dict, state: dict):
                      {"mode": "passthrough", "rewriteUrls": True}, " - its own card")
     if any(p["name"] == "api-key-auth" for p in a2a.get("policies", [])):
         issue_agent_key(card)
+        state["keys_changed"] = True
 
 
 def deploy_agent(agent_id: str, card: dict, context: str, policies: list, operations, public: dict,
@@ -1503,6 +1504,10 @@ def main():
                       "the keys issued so far")
             restart_ai_chatbot()
 
+    # A full run sets the gateway up for the business; run-local.sh runs one
+    # again when DEMO_VERTICAL no longer matches.
+    if not [a for a in args if not a.startswith("--")]:
+        PROVISIONED.write_text(VERTICAL_ID + "\n")
     print("\ndone." + (" ai-chatbot restarted with the new keys." if state["keys_changed"] else ""))
 
 
