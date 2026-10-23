@@ -40,7 +40,7 @@
       "id": "agent-governance",
       "title": "Agent governance",
       "icon": "agents",
-      "text": "Agents talk to agents through the gateway: it serves their cards and checks every message."
+      "text": "Agents talk to other agents through the gateway, which checks every message."
     },
     {
       "id": "owasp-llm",
@@ -3113,10 +3113,7 @@
     },
     {
       "id": "a2a-guardrail",
-      "group": [
-        "agent-governance",
-        "owasp-agentic"
-      ],
+      "group": "agent-governance",
       "a2a": {
         "agent": "Acme Roaming Agent",
         "context": "/acme-roaming-guard",
@@ -3182,12 +3179,6 @@
       "gateway": {
         "stream": false,
         "blockStatus": 422
-      },
-      "refs": {
-        "owasp-agentic": {
-          "code": "ASI01",
-          "text": "Agent goal hijack: a message to {brand}'s roaming agent that tries to turn it from its task is stopped at the gateway, before the agent reads it."
-        }
       }
     },
     {

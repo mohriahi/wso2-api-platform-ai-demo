@@ -1,6 +1,6 @@
 # The A2A Gateway page's gateway (A2A_ENABLED in demo.env): the main gateway's
-# own definition and configuration (../ai-gateway), on the first version with
-# A2A, and the agent behind it. scripts/a2a-compose.sh starts it next to the
+# own definition and configuration (../ai-gateway), on the version in
+# A2A_GATEWAY_VERSION (demo.env), and the agent behind it. scripts/a2a-compose.sh starts it next to the
 # main gateway, which is not touched.
 #
 # It runs on its own: it is not registered in AI Workspace, which does not
@@ -9,7 +9,7 @@
 # main gateway's.
 services:
   gateway-controller:
-    image: ghcr.io/wso2/api-platform/gateway-controller:2026.09.24
+    image: ghcr.io/wso2/api-platform/gateway-controller:${A2A_GATEWAY_VERSION:?set A2A_GATEWAY_VERSION in demo.env}
     environment:
       - APIP_GW_CONTROLLER_CONTROLPLANE_HOST=
       - APIP_GW_CONTROLLER_CONTROLPLANE_TOKEN=
@@ -17,7 +17,7 @@ services:
       - "${A2A_GATEWAY_CONTROLLER_REST_PORT}:9090"
 
   gateway-runtime:
-    image: ghcr.io/wso2/api-platform/gateway-runtime:2026.09.24
+    image: ghcr.io/wso2/api-platform/gateway-runtime:${A2A_GATEWAY_VERSION:?set A2A_GATEWAY_VERSION in demo.env}
     ports: !override
       - "${A2A_GATEWAY_HTTPS_PORT}:8443"
 
