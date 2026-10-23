@@ -288,17 +288,20 @@ export async function loadRegistry() {
 
 /* ---------- home ---------- */
 
-function badge(showcase) {
+/* Only a card that cannot run gets a badge; the reason shows on hover, so no
+ * setting name reaches the screen. */
+function badge(showcase, needs) {
+  const why = needs.length ? ' title="' + escapeHtml(needs.join(' ')) + '"' : '';
   if (showcase.status === 'disabled') {
-    return '<span class="badge is-blocked">Disabled</span>';
+    return '<span class="badge is-blocked"' + why + '>Disabled</span>';
   }
   if (showcase.status !== 'ready') {
-    return '<span class="badge is-blocked">Not available yet</span>';
+    return '<span class="badge is-blocked"' + why + '>Not available yet</span>';
   }
   if (!showcase.configured) {
-    return '<span class="badge is-unwired">No provider wired</span>';
+    return '<span class="badge is-unwired"' + why + '>Not configured</span>';
   }
-  return '<span class="badge is-ready">Ready</span>';
+  return '';
 }
 
 /* An EU AI Act article that binds high-risk systems only says so, plainly:
@@ -321,35 +324,32 @@ function cardHtml(showcase, group) {
     needs.push(showcase.unwiredReason || 'no provider configured');
   }
 
-  /* One chip per policy, so a long pair never breaks in the middle of a name. */
+  /* The policies by name; their versions show on hover. */
   const caps = (showcase.capability || '').split(' + ').filter(Boolean);
+  const policies = caps.map((c) => c.replace(/\s+v\d[\w.]*$/, '')).join(', ');
   /* In a group like OWASP or the EU AI Act: the risk or article it answers. */
   const ref = (showcase.refs || {})[group];
 
   /* A disabled card (DISABLED_CARDS in demo.env) stays on the home screen,
    * greyed out and not clickable, with its blockedBy reason. */
   const disabled = showcase.status === 'disabled';
+  const status = badge(showcase, needs);
   return '<a class="card' + (disabled ? ' is-disabled" aria-disabled="true" tabindex="-1"' : '"')
     + ' href="#/' + encodeURIComponent(showcase.id) + '">'
-    + '<div class="card-tags">' + badge(showcase)
-    /* A policy that calls an outside service names that service. */
-    + (showcase.vendor ? '<span class="vendor" title="Third-party policy: calls ' + escapeHtml(showcase.vendor)
-        + '">' + escapeHtml(showcase.vendor) + '</span>' : '')
-    + '</div>'
     + '<h3>' + (ref ? '<span class="ref-code">' + escapeHtml(ref.code) + '</span> ' : '')
-    + escapeHtml(showcase.title || showcase.id) + '</h3>'
+    + escapeHtml(showcase.title || showcase.id)
+    /* A policy that calls an outside service names that service. */
+    + (showcase.vendor ? ' <span class="vendor" title="Third-party policy: calls ' + escapeHtml(showcase.vendor)
+        + '">' + escapeHtml(showcase.vendor) + '</span>' : '')
+    + (status ? ' ' + status : '')
+    + '</h3>'
     + '<p>' + escapeHtml(showcase.tagline || '') + '</p>'
     + (ref ? '<p class="card-ref">' + scopeBadge(ref) + escapeHtml(branded(ref.text)) + '</p>' : '')
-    + (caps.length
-        ? '<p class="card-cap">' + caps.map((c) => '<span title="' + escapeHtml(c) + '">'
-            + escapeHtml(c) + '</span>').join('')
-          + '</p>'
-        : '')
-    + (needs.length
-        ? '<ul class="card-needs">'
-          + needs.map((n) => '<li>' + escapeHtml(n) + '</li>').join('')
-          + '</ul>'
-        : '')
+    + '<div class="card-foot">'
+    + (policies ? '<span class="card-cap" title="' + escapeHtml(caps.join(', ')) + '">'
+        + escapeHtml(policies) + '</span>' : '<span></span>')
+    + (disabled ? '' : '<span class="card-try" aria-hidden="true">Try &rarr;</span>')
+    + '</div>'
     + '</a>';
 }
 
@@ -370,14 +370,13 @@ const ICONS = {
   plug: '<path d="M9 2v5M15 2v5M6 7h12v4a6 6 0 0 1-12 0zM12 17v5"/>',
 };
 
-function groupHeadHtml(name, count) {
+function groupHeadHtml(name) {
   const [title, icon, text] = GROUPS[name] || [name, 'chat', ''];
   return '<header class="group-head">'
     + '<span class="group-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
     + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + ICONS[icon] + '</svg></span>'
     + '<div><h2 class="group-title">' + escapeHtml(title) + '</h2>'
     + (text ? '<p class="group-desc">' + escapeHtml(branded(text)) + '</p>' : '') + '</div>'
-    + '<span class="group-count">' + count + (count === 1 ? ' card' : ' cards') + '</span>'
     + '</header>';
 }
 
@@ -432,7 +431,7 @@ function renderCards() {
         + '<p>' + escapeHtml(registryError) + '</p></div>'
       : '')
     + sorted.map(([name, cards]) => '<section class="card-group">'
-        + (name ? groupHeadHtml(name, cards.length) : '')
+        + (name ? groupHeadHtml(name) : '')
         + '<div class="card-grid">' + cards.map((card) => cardHtml(card, name)).join('') + '</div>'
         + '</section>').join('');
   requestAnimationFrame(updateScrollHint);

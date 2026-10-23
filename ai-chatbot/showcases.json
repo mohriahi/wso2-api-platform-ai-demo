@@ -34,7 +34,7 @@
       "id": "third-party-policies",
       "title": "Third-party policies",
       "icon": "plug",
-      "text": "Policies that call an outside service: TypeSafe AI's Jev, Azure Content Safety and AWS Bedrock Guardrails. Each one needs its key in secrets/content-safety.env."
+      "text": "Policies that call an outside service: TypeSafe AI's Jev, Azure Content Safety and AWS Bedrock Guardrails."
     },
     {
       "id": "agent-governance",
