@@ -172,6 +172,7 @@ body[data-screen="home"] .crumb-card { display: none; }
 }
 .flow-step { display: flex; align-items: center; }
 .flow-app { color: color-mix(in srgb, var(--top-text) 78%, transparent); font-weight: 600; }
+.flow-icon { width: 1.15em; height: 1.15em; margin-right: 6px; flex: 0 0 auto; }
 .flow-arrow::before {
   content: "\2192";
   color: color-mix(in srgb, var(--top-text) 50%, transparent);
@@ -934,6 +935,7 @@ body[data-rail="none"] .workspace > .shell { grid-template-columns: minmax(0, va
   color: var(--text-strong);
 }
 
+.home-head { text-align: center; }
 .home-head p { margin: 0; color: var(--text-muted); }
 
 /* The path of each message, large: the page's picture. Same dark ground as
@@ -947,7 +949,16 @@ body[data-rail="none"] .workspace > .shell { grid-template-columns: minmax(0, va
   display: flex; justify-content: center;
   box-shadow: var(--shadow-card);
 }
-.hero-flow .flow { font-size: 16px; gap: 18px; flex-wrap: wrap; justify-content: center; }
+/* The gateway stays in the middle on every page: the assistant leans on it from
+   the left, what is behind it from the right, whatever their width. */
+.hero-flow .flow {
+  width: 100%; font-size: 16px; gap: 18px;
+  display: grid; grid-template-columns: 1fr auto auto auto 1fr; align-items: center;
+}
+.hero-flow .flow > :first-child { justify-self: end; }
+.hero-flow .flow > :last-child { justify-self: start; }
+/* What is behind the gateway reads first, its kind after it. */
+.hero-flow .provider-label { order: 2; }
 .hero-flow .flow-app {
   color: var(--top-text);
   padding: 8px 18px; border-radius: 999px;
