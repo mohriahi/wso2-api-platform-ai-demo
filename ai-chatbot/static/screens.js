@@ -141,36 +141,49 @@ function closeBackend() {
   backendBtn.setAttribute('aria-expanded', 'false');
 }
 
+/* One server or agent as a card: its name, the route it is read through,
+ * and whether the gateway's policies apply on that route. */
+function backendCardHtml(icon, name, aside, data, state, body) {
+  return '<article class="bcard"><header class="bcard-head">' + iconHtml(icon, 'bcard-icon')
+    + '<strong class="bcard-name">' + escapeHtml(name) + '</strong>'
+    + (aside ? '<span class="bcard-aside">' + escapeHtml(aside) + '</span>' : '') + '</header>'
+    + (data.via ? '<p class="bcard-meta"><code class="bcard-route">' + escapeHtml(data.via) + '</code><span class="bcard-state'
+      + (state.policy ? ' is-policy' : '') + '">' + escapeHtml(state.text) + '</span></p>' : '')
+    + body + '</article>';
+}
+
+const noAnswer = (data) => '<p class="bcard-note">The gateway did not answer: ' + escapeHtml(data.error || '') + '</p>';
+
 /* The tools as the gateway lists them to the agent: a hidden tool is not
  * there, a renamed one shows its new name, a rewritten description its new
  * text. */
-function mcpToolsHtml(data, title, note) {
+function mcpToolsHtml(data, name, state) {
   if (data.signinRequired) {
-    return '<p class="backend-note">Sign in on this card first: the gateway lists these tools to a signed-in user only.</p>';
+    return backendCardHtml('wrench', name, '', {}, state,
+      '<p class="bcard-note">Sign in on this card first: the gateway lists these tools to a signed-in user only.</p>');
   }
-  if (!data.tools) return '<p class="backend-note">The gateway did not answer: ' + escapeHtml(data.error || '') + '</p>';
-  return '<strong class="backend-title">' + escapeHtml(title) + '</strong>'
-    + '<p class="backend-note">' + note + '</p>'
-    + '<ul class="backend-list">' + data.tools.map((tool) => '<li><code>' + escapeHtml(tool.name)
-      + '(' + escapeHtml(tool.params.join(', ')) + ')</code><p>' + escapeHtml(tool.description) + '</p></li>').join('')
-    + '</ul>';
+  if (!data.tools) return backendCardHtml('wrench', name, '', {}, state, noAnswer(data));
+  return backendCardHtml('wrench', data.server || name, data.tools.length + (data.tools.length === 1 ? ' tool' : ' tools'),
+    data, state, '<ul class="bcard-list">' + data.tools.map((tool) => '<li><code class="bcard-tool">' + escapeHtml(tool.name)
+      + '<span>(' + escapeHtml(tool.params.join(', ')) + ')</span></code><p>' + escapeHtml(tool.description) + '</p></li>').join('')
+    + '</ul>');
 }
 
 /* The agent's card as the gateway serves it: every address points at the
  * gateway, so a client that discovers the agent comes back through it. */
-function agentDetailHtml(data, note) {
-  if (!data.name) return '<p class="backend-note">The gateway did not answer: ' + escapeHtml(data.error || '') + '</p>';
-  return '<strong class="backend-title">' + escapeHtml(data.name) + ' <span class="backend-version">v'
-      + escapeHtml(data.version || '?') + '</span></strong>'
-    + '<p class="backend-note">' + note + '</p>'
-    + '<p>' + escapeHtml(data.description || '') + '</p>'
-    + '<strong class="backend-subtitle">Skills</strong><ul class="backend-list">'
-    + data.skills.map((skill) => '<li><code>' + escapeHtml(skill.name) + '</code><p>' + escapeHtml(skill.description)
-      + (skill.examples.length ? '<br><em>"' + skill.examples.map(escapeHtml).join('", "') + '"</em>' : '') + '</p></li>').join('')
-    + '</ul><strong class="backend-subtitle">Addresses, pointed at the gateway</strong><ul class="backend-list">'
-    + data.interfaces.map((i) => '<li><code>' + escapeHtml(i.binding) + '</code><p>' + escapeHtml(i.url) + '</p></li>').join('')
-    + '</ul>';
+function agentDetailHtml(data, name, state) {
+  if (!data.name) return backendCardHtml('agents', name, '', {}, state, noAnswer(data));
+  return backendCardHtml('agents', data.name, 'v' + (data.version || '?'), data, state,
+    '<p class="bcard-desc">' + escapeHtml(data.description || '') + '</p>'
+    + '<h4 class="bcard-label">Skills</h4><ul class="bcard-list">'
+    + data.skills.map((skill) => '<li><strong>' + escapeHtml(skill.name) + '</strong><p>' + escapeHtml(skill.description) + '</p>'
+      + skill.examples.map((example) => '<q>' + escapeHtml(example) + '</q>').join('') + '</li>').join('')
+    + '</ul><h4 class="bcard-label">Addresses, all through the gateway</h4><ul class="bcard-addresses">'
+    + data.interfaces.map((i) => '<li><span>' + escapeHtml(i.binding) + '</span><code>' + escapeHtml(i.url) + '</code></li>').join('')
+    + '</ul>');
 }
+
+const NO_POLICY = { text: 'No gateway policy', policy: false };
 
 /* One card's server or agent, as the gateway publishes it for that card. */
 async function detailHtml(card, onCard) {
@@ -178,17 +191,12 @@ async function detailHtml(card, onCard) {
   const choice = card.a2a && !selectorBox.hidden ? '&choice=' + encodeURIComponent(selectorSelect.value) : '';
   const response = await fetch((card.a2a ? '/api/a2a/card' : '/api/mcp/tools') + '?showcase=' + encodeURIComponent(card.id) + choice);
   const data = await response.json();
-  const via = '<code>' + escapeHtml(data.via || '') + '</code>';
-  if (card.a2a) {
-    return agentDetailHtml(data, onCard ? 'Its agent card, as the gateway serves it through ' + via + '.'
-      : 'Its agent card, through ' + via + ', a proxy with no gateway rule.');
-  }
-  return onCard ? mcpToolsHtml(data, 'Tools the gateway publishes', 'What the agent sees through ' + via + ', after the gateway\'s policies.')
-    : mcpToolsHtml(data, data.server, 'Its tools as it offers them, through ' + via + ', a proxy with no gateway rule.');
+  if (card.a2a) return agentDetailHtml(data, card.a2a.agent, onCard ? { text: 'Served by the gateway', policy: true } : NO_POLICY);
+  return mcpToolsHtml(data, card.mcp.server, onCard ? { text: 'After the gateway\'s policies', policy: true } : NO_POLICY);
 }
 
 /* From a card: what the gateway publishes for it. From a page: each server or
- * agent as it is, through the card that puts no rule on it. */
+ * agent as it is, through a card that puts no policy on it. */
 backendBtn.addEventListener('click', async () => {
   if (!backendPanel.hidden) return closeBackend();
   const card = activeShowcase;
@@ -203,13 +211,15 @@ backendBtn.addEventListener('click', async () => {
       const cards = [...showcases.values()].filter((s) => pageOf(s) === activePage && (s.mcp || s.a2a));
       const backendOf = (s) => (s.a2a ? s.a2a.agent : s.mcp.server);
       const sections = [];
+      /* A rate limit sits on the card's operations, not in its policies. */
+      const noPolicy = (s) => !((s.a2a || s.mcp).policies || []).length && !(s.a2a || s.mcp).operations;
       for (const name of [...new Set(cards.map(backendOf))]) {
-        const plain = cards.find((s) => backendOf(s) === name && !((s.a2a || s.mcp).policies || []).length);
+        const plain = cards.find((s) => backendOf(s) === name && noPolicy(s));
         sections.push(plain ? await detailHtml(plain, false)
-          : '<strong class="backend-title">' + escapeHtml(name) + '</strong><p class="backend-note">Open one of its cards:'
-            + ' each one puts a gateway rule on it, so none shows it as it is.</p>');
+          : backendCardHtml(activePage === 'a2a' ? 'agents' : 'wrench', name, '', {}, NO_POLICY,
+            '<p class="bcard-note">Each of its cards puts a gateway policy on it: open one to see what the gateway publishes.</p>'));
       }
-      html = sections.join('<hr class="backend-sep">');
+      html = sections.join('');
     }
     if (activeShowcase === card) backendPanel.innerHTML = html;
   } catch (error) {
