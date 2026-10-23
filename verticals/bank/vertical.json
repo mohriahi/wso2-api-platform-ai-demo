@@ -203,7 +203,7 @@
           "name": "order_replacement_card",
           "does": "order",
           "argument": "deliveryAddress",
-          "description": "Send the signed-in customer a replacement debit card, for a lost, stolen or damaged card. The old card stops working once the new one is activated.",
+          "description": "Send the signed-in customer a replacement debit card, for a lost, stolen or damaged card. Ordering does not freeze the old card: the customer freezes it in the app, and it stops working once the new one is activated.",
           "argumentDescription": "The postal address to send the card to. The customer's address on file comes from get_account_details.",
           "replies": {
             "arrives": "in 3 to 5 working days"
@@ -279,7 +279,12 @@
         "Estonia",
         "Latvia",
         "Lithuania",
-        "Luxembourg"
+        "Luxembourg",
+        "Bulgaria",
+        "Andorra",
+        "Monaco",
+        "San Marino",
+        "Montenegro"
       ],
       "other": [
         "United States",

@@ -14,6 +14,10 @@ All prices in euro, monthly fees charged on the 1st. Fictional demo figures.
 
 Switching package is free and takes effect on the next working day.
 
+Travel insurance from our partner Globetrotter is sold separately: its policies are
+not part of any package. Premier and Private come with {brand}'s own travel
+insurance instead.
+
 ## Cards
 
 - **Debit card** (Mastercard): included with every package. Contactless up to
@@ -33,7 +37,8 @@ Switching package is free and takes effect on the next working day.
 ## Loans and overdrafts
 
 - **Personal loan**: 6.9% APR representative, €2,000 to €30,000, 1 to 7 years.
-- **Arranged overdraft**: 11.9% EAR on the amount used.
+- **Arranged overdraft**: none on Essential, €500 on Everyday, €1,500 on Plus and
+  Premier, €10,000 on Private. 11.9% EAR on the amount used.
 - **Unarranged overdraft**: not allowed; payments that would take you over your
   limit are declined, with no fee.
 
