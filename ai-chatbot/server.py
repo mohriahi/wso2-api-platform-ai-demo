@@ -372,7 +372,7 @@ def system_prompt(template=None):
 # Last good copy. A presenter edits a step's wording between rehearsals and
 # refreshes; a broken edit must not empty the home screen, so a parse failure
 # keeps serving whatever last parsed.
-_REGISTRY = {"list": [], "by_id": {}, "default_id": None, "error": None}
+_REGISTRY = {"list": [], "by_id": {}, "groups": [], "default_id": None, "error": None}
 
 # What the app is without a registry file: today's behaviour, exactly.
 _FALLBACK_ENTRY = {
@@ -425,12 +425,17 @@ def load_showcases():
             _install_registry([dict(_FALLBACK_ENTRY)], _REGISTRY["error"])
         return _REGISTRY
 
-    if not isinstance(raw, list):
-        _REGISTRY["error"] = "showcases.json must be a JSON array"
+    # {"groups": [...], "showcases": [...]}: the rows of the home screen, then
+    # the cards.
+    groups = raw.get("groups") if isinstance(raw, dict) else None
+    raw = raw.get("showcases") if isinstance(raw, dict) else None
+    if not isinstance(raw, list) or not isinstance(groups, list):
+        _REGISTRY["error"] = 'showcases.json must hold a "groups" and a "showcases" array'
         return _REGISTRY
 
     good, seen, problems = [], set(), []
-    disabled = _disabled_cards()
+    disabled = _demo_list("DISABLED_CARDS")
+    hidden_groups = _demo_list("DISABLED_GROUPS")
     for entry in raw:
         reason = _validate_entry(entry, seen)
         if reason:
@@ -439,6 +444,10 @@ def load_showcases():
         seen.add(entry["id"])
         if entry["id"] in disabled or entry.get("enabled") is False:
             entry = dict(entry, status="disabled", blockedBy=[DISABLED_REASON])
+        if hidden_groups:
+            entry = _without_groups(entry, hidden_groups)
+            if entry is None:
+                continue
         good.append(entry)
 
     if not good:
@@ -448,6 +457,7 @@ def load_showcases():
         return _REGISTRY
 
     _install_registry(good, "; ".join(problems) or None)
+    _REGISTRY["groups"] = [g for g in groups if isinstance(g, dict) and g.get("id") not in hidden_groups]
     return _REGISTRY
 
 
@@ -458,14 +468,27 @@ def load_showcases():
 DISABLED_REASON = "Not available in this demo"
 
 
-def _disabled_cards():
-    """Card ids in DISABLED_CARDS, from the environment, else demo.env. Read
-    per request, like showcases.json, so a card goes off or on again with no
-    restart."""
+def _demo_list(name):
+    """A comma-separated setting (DISABLED_CARDS, DISABLED_GROUPS), from the
+    environment, else demo.env. Read per request, like showcases.json, so a
+    card or a group goes off or on again with no restart."""
     path = ROOT / "demo.env"
-    value = os.environ.get("DISABLED_CARDS") or \
-        (read_env_file(path).get("DISABLED_CARDS", "") if path.exists() else "")
-    return {card.strip() for card in value.split(",") if card.strip()}
+    value = os.environ.get(name) or \
+        (read_env_file(path).get(name, "") if path.exists() else "")
+    return {item.strip() for item in value.split(",") if item.strip()}
+
+
+def _without_groups(entry, hidden):
+    """The card without the groups listed in DISABLED_GROUPS, nor their line
+    on its page (refs), so their row leaves the home screen. None when the card
+    belonged to those groups only: it is not shown at all."""
+    groups = entry.get("group")
+    names = groups if isinstance(groups, list) else [groups]
+    kept = [name for name in names if name not in hidden]
+    if not kept:
+        return None
+    refs = {name: ref for name, ref in (entry.get("refs") or {}).items() if name not in hidden}
+    return dict(entry, group=kept if isinstance(groups, list) else kept[0], refs=refs)
 
 
 # The settings a card's text can show as {NAME}: those of demo.env.example,
@@ -1151,6 +1174,7 @@ class Handler(BaseHTTPRequestHandler):
                 "provider": provider_id,
                 "defaultShowcase": registry["default_id"],
                 "registry": {"error": registry["error"]},
+                "groups": registry["groups"],
                 "showcases": out}
 
     def _serve_static(self, path):

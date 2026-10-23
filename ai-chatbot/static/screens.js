@@ -162,6 +162,7 @@ export async function loadRegistry() {
     registryError = (data.registry && data.registry.error) || null;
     showcases.clear();
     for (const item of data.showcases || []) showcases.set(item.id, item);
+    GROUPS = Object.fromEntries((data.groups || []).map((g) => [g.id, [g.title, g.icon, g.text, g.order]]));
   } catch (error) {
     registryError = 'could not load /api/showcases: ' + error;
   }
@@ -236,21 +237,10 @@ function cardHtml(showcase, group) {
     + '</a>';
 }
 
-/* Each group's icon and, in one line, what it brings. Groups show in this
- * order, on whichever page has cards in them. */
-const GROUPS = {
-  'Routing and resilience': ['route', 'The gateway picks the provider and the model for each request, and keeps answering when one fails.'],
-  'Cost and performance': ['gauge', 'Fewer tokens and a capped bill: answers from cache, compressed prompts, a cheaper model as spend rises, and a budget the gateway enforces.'],
-  'Safety': ['shield', 'What reaches the model, and what comes back, is checked at the gateway.'],
-  'Identity': ['user', 'Who is calling, and what they may do: tokens from your identity provider, checked at the gateway.'],
-  'Tool governance': ['wrench', 'Which tools the agent sees, what it may pass them, and how often it may call them.'],
-  'Third-party policies': ['plug', 'Policies that call an outside service, attached at the gateway like any other: TypeSafe AI\'s Jev, Azure Content Safety and AWS Bedrock Guardrails. Each one needs its key in secrets/content-safety.env.'],
-  'OWASP Top 10 for LLMs (2026)': ['alert', 'The risks of the OWASP Top 10 for LLM applications, 2026 edition, as they would hit {brand}, each one stopped at the gateway.'],
-  'OWASP Top 10 for Agentic Applications': ['alert', 'The risks of the OWASP Top 10 for agentic applications (2026), as they would hit {brand}\'s agent, each one stopped at the gateway.'],
-  'Compliance (EU AI Act)': ['scale', 'What the EU AI Act asks of {brand}\'s assistant: say it is an AI (Art. 50); personal data falls under the GDPR. Record-keeping (Art. 12) and robustness (Art. 15) bind high-risk systems only, which a customer assistant is not: they show here as good practice.'],
-  /* Always last. */
-  'Baseline': ['chat', 'The starting point, with no policy under test, to compare against.'],
-};
+/* The groups come with the registry (showcases.json's "groups"), in the order
+ * they show: id -> [title, icon, one line on what the group brings, and the
+ * order of its cards when it sets one]. */
+let GROUPS = {};
 const ICONS = {
   route: '<path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>',
   gauge: '<path d="M12 14l4-4M3.3 18a9 9 0 1 1 17.4 0"/>',
@@ -264,11 +254,11 @@ const ICONS = {
 };
 
 function groupHeadHtml(name, count) {
-  const [icon, text] = GROUPS[name] || ['chat', ''];
+  const [title, icon, text] = GROUPS[name] || [name, 'chat', ''];
   return '<header class="group-head">'
     + '<span class="group-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
     + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + ICONS[icon] + '</svg></span>'
-    + '<div><h2 class="group-title">' + escapeHtml(name) + '</h2>'
+    + '<div><h2 class="group-title">' + escapeHtml(title) + '</h2>'
     + (text ? '<p class="group-desc">' + escapeHtml(branded(text)) + '</p>' : '') + '</div>'
     + '<span class="group-count">' + count + (count === 1 ? ' card' : ' cards') + '</span>'
     + '</header>';
@@ -307,12 +297,16 @@ function renderCards() {
   const sorted = [...groups].sort(([a], [b]) => rank(a) - rank(b));
   const code = (card, name) => ((card.refs || {})[name] || {}).code;
   for (const [name, cards] of sorted) {
+    /* A group can list its cards in order ("order" in showcases.json); the
+     * cards it does not list come after them. */
+    const listed = (GROUPS[name] || [])[3] || [];
+    const place = (card) => (listed.includes(card.id) ? listed.indexOf(card.id) : listed.length);
     if (cards.every((card) => code(card, name))) {
       const scope = (card) => (((card.refs || {})[name] || {}).scope === 'high-risk' ? 1 : 0);
-      /* A group can set its own order with "order" in each card's ref. */
-      const place = (card) => ((card.refs || {})[name] || {}).order || 999;
       cards.sort((a, b) => place(a) - place(b) || scope(a) - scope(b)
         || code(a, name).localeCompare(code(b, name), 'en', { numeric: true }));
+    } else if (listed.length) {
+      cards.sort((a, b) => place(a) - place(b));
     }
   }
   cardsBox.innerHTML =
@@ -420,7 +414,7 @@ function mountShowcase(showcase) {
   introHead.textContent = INTRO_HEADING;
   introBody.textContent = INTRO_BODY;
   introRefs.innerHTML = Object.entries(showcase.refs || {}).map(([group, ref]) =>
-    '<div class="intro-ref"><span class="ref-group">' + escapeHtml(group) + '</span>'
+    '<div class="intro-ref"><span class="ref-group">' + escapeHtml((GROUPS[group] || [group])[0]) + '</span>'
     + '<p><span class="ref-code">' + escapeHtml(ref.code) + '</span> ' + scopeBadge(ref)
     + escapeHtml(branded(ref.text)) + '</p></div>').join('');
   introChips.innerHTML = (introData.chips || []).map((chip) =>

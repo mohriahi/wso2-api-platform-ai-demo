@@ -102,7 +102,9 @@ Server or any other): see the [IDP Setup](.docs/mcp-identity-provider.md).
 The LLM Gateway page also gathers its cards under the **OWASP Top 10 for LLMs
 (2026)**, the MCP Gateway page under the **OWASP Top 10 for Agentic
 Applications**, and the LLM Gateway page under **Compliance (EU AI Act)**, with
-one line per card on the risk or the article it answers.
+one line per card on the risk or the article it answers. For an audience
+outside Europe, `DISABLED_GROUPS=compliance-eu-ai-act` in `demo.env` hides the
+EU AI Act row.
 
 Both pages also have a **Third-party policies** row, before the OWASP and EU AI
 Act ones: the cards whose policy calls an outside service (TypeSafe AI's Jev,

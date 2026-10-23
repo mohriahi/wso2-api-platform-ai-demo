@@ -199,6 +199,22 @@ DISABLED_CARDS=content-safety,content-safety-bedrock
 Card ids are listed in `ai-chatbot/showcases.json`. This takes effect when
 the page is reloaded, without a restart.
 
+### Hide a whole row of cards
+
+To leave a theme out of your demo, for example the EU AI Act row when your
+audience is outside Europe, hide its row:
+
+```
+DISABLED_GROUPS=compliance-eu-ai-act
+```
+
+Rows are named by their id, separated by commas: `routing-and-resilience`,
+`cost-and-performance`, `safety`, `identity`, `tool-governance`,
+`third-party-policies`, `owasp-llm`, `owasp-agentic`, `compliance-eu-ai-act`
+and `baseline` (the `groups` list of `ai-chatbot/showcases.json`). A card
+that also belongs to another row stays there. This takes effect when the page
+is reloaded, without a restart.
+
 ### How budgets and rate limits refill
 
 `RATE_LIMIT_ALGORITHM` decides how the spend limit, cost-based routing, token
