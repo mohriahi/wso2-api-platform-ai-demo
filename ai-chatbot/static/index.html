@@ -79,26 +79,20 @@
   <div class="shell">
     <div class="col-main home-head" data-page-only="llm">
       <h1>Which capability are you showing?</h1>
-      <p>Every card below talks to its <strong>own LLM proxy</strong> on the
-         WSO2 AI Gateway, with that card's policy attached. The proxies share
-         one <strong>LLM provider</strong> per vendor, so the cards stay isolated from each
-         other. This app never configures the gateway: it only picks which
-         proxy answers.</p>
+      <p>Each card shows one capability of the WSO2 AI Gateway, with its own
+         rule. The app never configures the gateway: it only picks which card
+         answers.</p>
     </div>
     <div class="col-main home-head" data-page-only="mcp">
       <h1>Which MCP capability are you showing?</h1>
-      <p>Every card below gives the assistant the tools of an MCP server
-         through that card's <strong>own MCP proxy</strong> on the WSO2 AI
-         Gateway, with its policy attached. The assistant only sees the tools
-         the proxy lists and calls them through it, so the gateway's rules
-         decide what it can do.</p>
+      <p>Here the assistant is an agent that uses tools. It reaches them only
+         through the WSO2 AI Gateway, so the gateway's rules decide what it can
+         do.</p>
     </div>
     <div class="col-main home-head" data-page-only="a2a">
       <h1>Which A2A capability are you showing?</h1>
-      <p>Here the assistant is an A2A client: it hands the customer's question
-         to another agent through that agent's <strong>own agent proxy</strong>
-         on the WSO2 AI Gateway. The gateway serves the agent's card, pointing
-         every client at itself, and checks each message with the card's policy.</p>
+      <p>Here the assistant hands the question to another agent, through the
+         WSO2 AI Gateway, which checks every message between the two.</p>
     </div>
     <div class="col-main cards" id="cards"></div>
   </div>
