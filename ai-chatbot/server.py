@@ -1351,7 +1351,8 @@ class Handler(BaseHTTPRequestHandler):
 
         showcase = resolve_showcase(showcase_id, provider_id)
         entry = registry["by_id"][showcase_id]
-        if payload.get("plain") is True and not entry.get("mcp") and not entry.get("a2a") \
+        payload_plain = payload.get("plain")
+        if payload_plain is True and not entry.get("mcp") and not entry.get("a2a") \
                 and policy_comparison_enabled():
             showcase = without_policies(showcase, entry, provider_id)
         if not showcase["url"]:
@@ -1427,6 +1428,14 @@ class Handler(BaseHTTPRequestHandler):
             elif outcome == "policy_block":
                 payload["error"] = ("a gateway policy blocked this request "
                                     "before any model was called")
+            # The gateway sets a meaning-based policy up with the embeddings
+            # model. When that model does not answer, it leaves the policy out
+            # and answers this bare 500: say why.
+            elif (exc.code == 500 and "Internal Server Error" in body and payload_plain is not True
+                  and any(name.startswith("semantic-") for name in entry.get("policies") or [])):
+                payload["error"] = ("the gateway could not set this card's policy up: the embeddings model it "
+                                    "needs (EMBEDDING_PROVIDER in demo.env) did not answer. Restart the gateway "
+                                    "once that model answers again.")
             # A policy refusing on purpose is not a fault. 422 says "the
             # content was rejected" without the alarm of a 502, and the client
             # still branches on gatewayStatus, so a 422 carrying 429 renders
