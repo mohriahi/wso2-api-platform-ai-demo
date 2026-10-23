@@ -716,9 +716,10 @@ def resolve_showcase(showcase_id, provider_id=DEFAULT_PROVIDER_ID):
     # A routed or MCP card (see resolve_gateway) speaks its own provider's
     # wire format and default model, and its env vars carry the default
     # provider's (unsuffixed) names, since it belongs to no single provider.
+    # So does an A2A card: its agent's key is the same whatever the provider.
     mcp = entry.get("mcp")
     own_provider = (entry.get("route") or {}).get("defaultProvider") or (mcp or {}).get("provider")
-    conf_provider = DEFAULT_PROVIDER_ID if own_provider else provider_id
+    conf_provider = DEFAULT_PROVIDER_ID if own_provider or entry.get("a2a") else provider_id
     wire_provider = own_provider if own_provider and url else provider_id
 
     fallback_model = default_model(wire_provider)

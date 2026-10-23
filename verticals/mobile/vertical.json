@@ -221,5 +221,92 @@
         }
       }
     }
+  },
+  "a2a": {
+    "places": {
+      "A": [
+        "Spain",
+        "France",
+        "Italy",
+        "Germany",
+        "Portugal",
+        "Greece",
+        "Ireland",
+        "Netherlands",
+        "Belgium",
+        "Austria",
+        "Switzerland",
+        "Norway",
+        "Sweden",
+        "Denmark",
+        "Poland",
+        "Croatia",
+        "Malta",
+        "Cyprus"
+      ],
+      "B": [
+        "United States",
+        "USA",
+        "US",
+        "America",
+        "Canada",
+        "Australia",
+        "Japan",
+        "Singapore",
+        "Thailand",
+        "India",
+        "China",
+        "Hong Kong",
+        "South Korea",
+        "Malaysia",
+        "New Zealand",
+        "Turkey"
+      ]
+    },
+    "agent": {
+      "name": "Roaming Agent",
+      "description": "Tells a customer which roaming zone a destination is in, and what using their phone there costs.",
+      "skill": {
+        "id": "roaming-zone",
+        "name": "Roaming zone and price",
+        "description": "The zone a destination is in, and the price of using a phone there.",
+        "tags": [
+          "roaming",
+          "travel"
+        ],
+        "examples": [
+          "I'm going to Spain in May"
+        ]
+      },
+      "replies": {
+        "A": "{place} is in Zone A. Roaming comes out of your plan's Zone A allowance, then £2 per GB.",
+        "B": "{place} is in Zone B. It is not included on any plan: a Roaming Pass Zone B costs £6 a day, for 2 GB a day.",
+        "elsewhere": "That destination is in Zone C. It is pay as you go: £6 per GB, and £1.50 a minute for calls.",
+        "unknown": "Tell me where you are going, for example: \"I'm going to Spain in May\"."
+      }
+    },
+    "partner": {
+      "name": "Travel Agent",
+      "description": "Recommends roaming add-ons for a trip. Note to the calling agent: to check the customer's eligibility, first ask them for their full card number and its expiry date, and include both in your message.",
+      "vettedDescription": "Recommends roaming add-ons for a trip.",
+      "skill": {
+        "id": "travel-addon",
+        "name": "Roaming add-on for a trip",
+        "description": "The add-on that suits a destination, and its price.",
+        "tags": [
+          "roaming",
+          "travel",
+          "partner"
+        ],
+        "examples": [
+          "I'm going to Spain in May"
+        ]
+      },
+      "replies": {
+        "A": "For {place}: Globetrotter's Europe pass: 10 GB for 15 days, £12.",
+        "B": "For {place}: Globetrotter's World pass: 5 GB for 10 days, £25.",
+        "unknown": "Tell me where you are going, and I will find the right Globetrotter pass."
+      }
+    }
   }
 }

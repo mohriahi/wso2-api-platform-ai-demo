@@ -46,7 +46,7 @@ docker network inspect "$DEMO_NAME-mcp" >/dev/null 2>&1 || docker network create
 # The A2A Gateway page's own gateway and agent, when that page is on
 # (A2A_ENABLED in demo.env).
 if [[ "${A2A_ENABLED:-false}" == true ]]; then
-  "$ROOT/scripts/a2a-compose.sh" up -d --build >"$LOGS/a2a.log" 2>&1
+  "$ROOT/scripts/a2a-compose.sh" up -d --build --remove-orphans >"$LOGS/a2a.log" 2>&1
 else
   "$ROOT/scripts/a2a-compose.sh" down >"$LOGS/a2a.log" 2>&1
 fi

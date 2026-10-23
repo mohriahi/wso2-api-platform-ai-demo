@@ -3174,13 +3174,13 @@
       "id": "a2a-card-control",
       "group": "agent-governance",
       "a2a": {
-        "agent": "Travel Agent",
-        "context": "/globetrotter-agent",
-        "upstream": "http://globetrotter-agent:8000",
+        "agent": "{v:a2a.partner.name}",
+        "context": "/partner-agent",
+        "upstream": "http://partner-agent:8000",
         "policies": [],
         "managedCard": {
-          "name": "Travel Agent",
-          "description": "Recommends roaming add-ons for a trip.",
+          "name": "{v:a2a.partner.name}",
+          "description": "{v:a2a.partner.vettedDescription}",
           "version": "1.0.0",
           "capabilities": {
             "streaming": false
@@ -3192,22 +3192,10 @@
             "text/plain"
           ],
           "skills": [
-            {
-              "id": "travel-addon",
-              "name": "Roaming add-on for a trip",
-              "description": "The add-on that suits a destination, and its price.",
-              "tags": [
-                "roaming",
-                "travel",
-                "partner"
-              ],
-              "examples": [
-                "I'm going to Spain in May"
-              ]
-            }
+            "{v:a2a.partner.skill}"
           ]
         },
-        "plainContext": "/globetrotter-own",
+        "plainContext": "/partner-agent-own",
         "reader": true,
         "provider": "mistral"
       },
@@ -3259,7 +3247,7 @@
           ]
         }
       ],
-      "notes": "Two agent proxies in front of Globetrotter (a2a/acme-roaming/agent.py, AGENT_PROFILE=globetrotter): /globetrotter-own passes its own card on (passthrough), /globetrotter-agent serves the vetted card (spec.a2a.agentCard.public mode managed; managedCard in showcases.json, the gateway's addresses added by provision_showcases.py). The selector picks which one the assistant reads. On this card only, the assistant reads the card with a model (Mistral's, through its plain-chat lane) and either asks the customer first or writes to the agent; tested three times in a row each way before this card was written.",
+      "notes": "Two agent proxies in front of Globetrotter (a2a/agent/agent.py, ROLE=partner): /partner-agent-own passes its own card on (passthrough), /partner-agent serves the vetted card (spec.a2a.agentCard.public mode managed; managedCard in showcases.json, the gateway's addresses added by provision_showcases.py). The selector picks which one the assistant reads. On this card only, the assistant reads the card with a model (Mistral's, through its plain-chat lane) and either asks the customer first or writes to the agent; tested three times in a row each way before this card was written.",
       "gateway": {
         "stream": false
       },
@@ -3278,9 +3266,9 @@
       "id": "a2a-agent-auth",
       "group": "agent-governance",
       "a2a": {
-        "agent": "Roaming Agent",
-        "context": "/acme-roaming-auth",
-        "upstream": "http://acme-roaming:8000",
+        "agent": "{v:a2a.agent.name}",
+        "context": "/acme-agent-auth",
+        "upstream": "http://acme-agent:8000",
         "policies": [
           {
             "name": "api-key-auth",
@@ -3359,9 +3347,9 @@
       "id": "a2a-guardrail",
       "group": "agent-governance",
       "a2a": {
-        "agent": "Roaming Agent",
-        "context": "/acme-roaming-guard",
-        "upstream": "http://acme-roaming:8000",
+        "agent": "{v:a2a.agent.name}",
+        "context": "/acme-agent-guard",
+        "upstream": "http://acme-agent:8000",
         "policies": [
           {
             "name": "regex-guardrail",
@@ -3429,9 +3417,9 @@
       "id": "a2a-rate-limit",
       "group": "agent-governance",
       "a2a": {
-        "agent": "Roaming Agent",
-        "context": "/acme-roaming-limit",
-        "upstream": "http://acme-roaming:8000",
+        "agent": "{v:a2a.agent.name}",
+        "context": "/acme-agent-limit",
+        "upstream": "http://acme-agent:8000",
         "policies": [],
         "operations": [
           {
@@ -3529,9 +3517,9 @@
         "log-message v1.0.3"
       ],
       "a2a": {
-        "agent": "Roaming Agent",
-        "context": "/acme-roaming-audit",
-        "upstream": "http://acme-roaming:8000",
+        "agent": "{v:a2a.agent.name}",
+        "context": "/acme-agent-audit",
+        "upstream": "http://acme-agent:8000",
         "policies": [
           {
             "name": "log-message",
@@ -3597,9 +3585,9 @@
       "id": "a2a-agent",
       "group": "baseline",
       "a2a": {
-        "agent": "Roaming Agent",
-        "context": "/acme-roaming",
-        "upstream": "http://acme-roaming:8000",
+        "agent": "{v:a2a.agent.name}",
+        "context": "/acme-agent",
+        "upstream": "http://acme-agent:8000",
         "policies": []
       },
       "title": "Agent behind the gateway",
@@ -3646,7 +3634,7 @@
           ]
         }
       ],
-      "notes": "One agent proxy (/acme-roaming) in front of the roaming agent (a2a/acme-roaming), no policy, on the A2A gateway (a2a/), separate from the main one. A2A 1.0, both bindings: JSON-RPC at the root and HTTP+JSON under /v1. The gateway relays the agent's card with its addresses pointed at itself. Agents are deployed on that gateway through its management API: the control plane does not handle them yet.",
+      "notes": "One agent proxy (/acme-agent) in front of the roaming agent (a2a/agent), no policy, on the A2A gateway (a2a/), separate from the main one. A2A 1.0, both bindings: JSON-RPC at the root and HTTP+JSON under /v1. The gateway relays the agent's card with its addresses pointed at itself. Agents are deployed on that gateway through its management API: the control plane does not handle them yet.",
       "gateway": {
         "stream": false
       }
