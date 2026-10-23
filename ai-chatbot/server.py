@@ -474,14 +474,22 @@ def load_showcases():
 DISABLED_REASON = "Not available in this demo"
 
 
-def _demo_list(name):
-    """A comma-separated setting (DISABLED_CARDS, DISABLED_GROUPS), from the
-    environment, else demo.env. Read per request, like showcases.json, so a
-    card or a group goes off or on again with no restart."""
+def _demo_value(name):
+    """A setting from demo.env, else the environment. Read per request, like
+    showcases.json, so a change in demo.env applies with no restart."""
     path = ROOT / "demo.env"
-    value = os.environ.get(name) or \
-        (read_env_file(path).get(name, "") if path.exists() else "")
-    return {item.strip() for item in value.split(",") if item.strip()}
+    conf = read_env_file(path) if path.exists() else {}
+    return conf[name] if name in conf else os.environ.get(name, "")
+
+
+def _demo_list(name):
+    """A comma-separated setting (DISABLED_CARDS, DISABLED_GROUPS)."""
+    return {item.strip() for item in _demo_value(name).split(",") if item.strip()}
+
+
+def policy_comparison_enabled():
+    """The "Ask without the policy" button (POLICY_COMPARISON_ENABLED), off unless true."""
+    return _demo_value("POLICY_COMPARISON_ENABLED").strip().lower() == "true"
 
 
 def _without_groups(entry, hidden):
@@ -799,6 +807,15 @@ def resolve_showcase(showcase_id, provider_id=DEFAULT_PROVIDER_ID):
         "keySource": ("showcase" if own_key else "fallback" if fallback_key
                       else "open" if mcp else None),
     }
+
+
+def without_policies(showcase, entry, provider_id):
+    """The same request, sent to the provider's plain lane: through the gateway,
+    with none of the card's policies. For the "Ask without the policy" button."""
+    plain = resolve_showcase("plain-chat", (entry.get("route") or {}).get("defaultProvider") or provider_id)
+    return dict(showcase, url=plain["url"], baseUrl=plain["baseUrl"], context=plain["context"],
+                source=plain["source"], apiKey=plain["apiKey"], keySource=plain["keySource"],
+                model=showcase["model"] or plain["model"], selector=None, limit=None, blockStatus=None)
 
 
 def cost_meta(headers):
@@ -1220,6 +1237,7 @@ class Handler(BaseHTTPRequestHandler):
                 "registry": {"error": registry["error"]},
                 "groups": registry["groups"],
                 "a2a": A2A_ENABLED,
+                "policyComparison": policy_comparison_enabled(),
                 "showcases": out}
 
     def _serve_static(self, path):
@@ -1318,6 +1336,10 @@ class Handler(BaseHTTPRequestHandler):
                                     "known": sorted(registry["by_id"])})
 
         showcase = resolve_showcase(showcase_id, provider_id)
+        entry = registry["by_id"][showcase_id]
+        if payload.get("plain") is True and not entry.get("mcp") and not entry.get("a2a") \
+                and policy_comparison_enabled():
+            showcase = without_policies(showcase, entry, provider_id)
         if not showcase["url"]:
             # 503, not 502: nothing upstream was contacted or misbehaved --
             # this server has no provider for this card.
@@ -1328,7 +1350,6 @@ class Handler(BaseHTTPRequestHandler):
                 "gatewayOutcome": "not_configured",
                 "hint": showcase["source"]})
 
-        entry = registry["by_id"][showcase_id]
         if entry.get("a2a"):
             conversation = payload.get("conversation")
             if not isinstance(conversation, str) or not CONVERSATION_RE.match(conversation):

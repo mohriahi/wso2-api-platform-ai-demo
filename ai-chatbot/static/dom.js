@@ -15,6 +15,7 @@ export const statusEl    = document.getElementById('status');
 export const statusText  = document.getElementById('status-text');
 export const clearBtn    = document.getElementById('clear');
 export const clearCacheBtn = document.getElementById('clear-cache');
+export const plainBtn    = document.getElementById('ask-plain');
 export const llmSelect   = document.getElementById('llm-provider');
 
 /* -- control strip ------------------------------------------------------- */

@@ -426,6 +426,21 @@ body[data-screen="home"] .crumb-card { display: none; }
   letter-spacing: .01em;
   color: var(--text-muted);
 }
+/* A question asked again without the card's policies, and its answer: marked,
+   so the audience can tell it from the card's own exchange. */
+.plain-tag {
+  display: inline-block;
+  margin-bottom: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--warn);
+  color: #1d1600;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+.msg:has(> .plain-tag) { outline: 2px dashed var(--warn); outline-offset: 2px; }
+
 /* MCP cards: one line per tool call, above the answer. Red is the gateway
    saying no, as everywhere else on this page. */
 .tool-list {

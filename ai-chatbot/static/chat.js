@@ -9,12 +9,12 @@
 
 import { renderMarkdown, escapeHtml } from './markdown.js';
 import {
-  transcript, intro, form, input, sendBtn, clearBtn, clearCacheBtn,
+  transcript, intro, form, input, sendBtn, clearBtn, clearCacheBtn, plainBtn,
   alertBox, alertMetrics, addBubble, typingHtml, bubbleHtml, agentCardHtml, toolListHtml, toolCallHtml, setBusy,
   showError, showRefusal, clearError, showRoute, showBudget, selectorBox, selectorSelect,
   markBudgetExhausted, showSpendMeter, scrollDown, resetRoute, signinBox,
 } from './dom.js';
-import { activeId, activeShowcase, activeProvider, onSessionReset } from './screens.js';
+import { activeId, activeShowcase, activeProvider, policyComparison, onSessionReset } from './screens.js';
 import {
   beginTurn, finishTurn, previousTurn, metricsHtml, turns, resetTurns,
 } from './metrics.js';
@@ -30,13 +30,26 @@ let inFlight = null;
  * limit counts per conversation. A new conversation gets a new id. */
 let conversation = crypto.randomUUID();
 
-export async function ask(question, origin) {
+/* The last question asked on the card, and the conversation before it: what
+ * "Ask without the policy" sends again. */
+let lastAsk = null;
+const PLAIN_TAG = '<span class="plain-tag">Without the policy</span>';
+
+/* "Ask without the policy" is for the LLM cards that have a policy to leave out. */
+function canAskPlain() {
+  return Boolean(policyComparison && lastAsk && activeShowcase && !activeShowcase.mcp && !activeShowcase.a2a
+                 && activeId !== 'plain-chat');
+}
+
+/* plain: send the question to the provider's plain lane, with none of the
+ * card's policies, to compare. It stays out of the conversation and the steps. */
+export async function ask(question, origin, plain = false) {
   if (!activeShowcase) return;
 
   /* The rail hands out prompts to copy, so a step's question arrives through
    * the composer like any other. Match it back to its step so the Expect line
    * and the verdict still work. */
-  if (!origin) origin = findOrigin(question);
+  if (!origin && !plain) origin = findOrigin(question);
 
   /* A disabled showcase (opened from a direct link) never sends. */
   if (activeShowcase.status === 'disabled') {
@@ -57,12 +70,16 @@ export async function ask(question, origin) {
     return;
   }
 
-  clearError();
-  const userBubble = addBubble('user', renderMarkdown(question));
-  messages.push({ role: 'user', content: question });
+  /* The card's own verdict (a block) stays up beside the answer without the policy. */
+  if (!plain) clearError();
+  const userBubble = addBubble('user', (plain ? PLAIN_TAG : '') + renderMarkdown(question));
+  if (!plain) lastAsk = { question, history: messages.slice() };
+  const sent = plain ? lastAsk.history.concat({ role: 'user', content: question }) : messages;
+  if (!plain) messages.push({ role: 'user', content: question });
 
   const bubble = addBubble('assistant', typingHtml());
   setBusy(true);
+  plainBtn.disabled = true;
   markRunning(origin);
 
   let answer = '';
@@ -81,8 +98,9 @@ export async function ask(question, origin) {
       headers: { 'content-type': 'application/json' },
       /* A showcase *id*, never a URL. The server owns the id-to-provider
        * mapping; see the comment at the lookup in server.py. */
-      body: JSON.stringify({ messages, showcase: activeId, provider: activeProvider, conversation,
-                             choice: selectorBox.hidden ? undefined : selectorSelect.value }),
+      body: JSON.stringify({ messages: sent, showcase: activeId, provider: activeProvider, conversation,
+                             choice: selectorBox.hidden ? undefined : selectorSelect.value,
+                             plain: plain || undefined }),
       signal: inFlight.signal,
     });
 
@@ -120,7 +138,8 @@ export async function ask(question, origin) {
         ? ' (gateway returned HTTP ' + payload.gatewayStatus + ')'
         : '';
       /* A card's own limit (a token quota) is not the cost budget. */
-      if (turn.outcome === 'refused' && !payload.limitTitle) markBudgetExhausted();
+      if (plain) { /* the card's budget is not this lane's */ }
+      else if (turn.outcome === 'refused' && !payload.limitTitle) markBudgetExhausted();
       else showBudget(payload.costLimit, payload.costRemaining);
 
       if (outcome === 'signin_required') {
@@ -178,9 +197,12 @@ export async function ask(question, origin) {
         try { event = JSON.parse(data); } catch (e) { continue; }
 
         if (name === 'gateway_meta') {
-          showBudget(event.costLimit, event.costRemaining);
-          turn.costLimit = event.costLimit;
-          turn.costRemaining = event.costRemaining;
+          /* The plain lane has a budget of its own, not the card's. */
+          if (!plain) {
+            showBudget(event.costLimit, event.costRemaining);
+            turn.costLimit = event.costLimit;
+            turn.costRemaining = event.costRemaining;
+          }
           turn.cost = event.cost || null;
           turn.headers = event.headers || {};
           turn.cacheHit = event.cacheHit;
@@ -240,7 +262,7 @@ export async function ask(question, origin) {
           const usage = event.message.usage || {};
           turn.inputTokens = usage.input_tokens === undefined
             ? null : usage.input_tokens;
-          showRoute(servedModel);
+          if (!plain) showRoute(servedModel);
           bubble.innerHTML = tools + typingHtml()
             + (servedModel ? '<p class="msg-model">' + escapeHtml(servedModel)
                              + '</p>' : '');
@@ -255,7 +277,7 @@ export async function ask(question, origin) {
           if (event.delta.type === 'text_delta') {
             if (turn.ttft === null) turn.ttft = performance.now() - turn.t0;
             answer += event.delta.text || '';
-            bubble.innerHTML = tools + bubbleHtml(answer, servedModel, true);
+            bubble.innerHTML = (plain ? PLAIN_TAG : '') + tools + bubbleHtml(answer, servedModel, true);
             scrollDown(false);
           }
         } else if (event.type === 'message_delta') {
@@ -286,10 +308,10 @@ export async function ask(question, origin) {
       /* Cost-based routing publishes no balance, so its meter is folded in
        * here from this turn's tokens -- and the step-down it detects is what
        * the card exists to show. A no-op on every other showcase. */
-      showSpendMeter(recordSpend(turn));
-      bubble.innerHTML = tools + bubbleHtml(answer, servedModel, false)
+      if (!plain) showSpendMeter(recordSpend(turn));
+      bubble.innerHTML = (plain ? PLAIN_TAG : '') + tools + bubbleHtml(answer, servedModel, false)
                        + metricsHtml(finishSnapshot(turn));
-      messages.push({ role: 'assistant', content: answer });
+      if (!plain) messages.push({ role: 'assistant', content: answer });
     } else if (!failed) {
       /* Verified against this gateway: given a small max_tokens, a reasoning
        * model can spend the whole budget on internal reasoning, returning no
@@ -298,7 +320,7 @@ export async function ask(question, origin) {
        * in a row, so a user message with no answer beside it cannot be
        * carried forward. */
       turn.outcome = 'empty';
-      dropPendingQuestion();
+      if (!plain) dropPendingQuestion();
       bubble.innerHTML = tools + '<p class="notice">' + (stopReason === 'max_tokens'
         ? 'The model hit its token limit before writing an answer. Raise MAX_TOKENS in config.env and try again.'
         : 'The gateway returned no text for that request.') + '</p>';
@@ -322,7 +344,7 @@ export async function ask(question, origin) {
     /* A blocked turn has no bubble to hang metrics on -- both were removed --
      * so the evidence goes into the error strip instead. On the guardrail card
      * that strip is the entire payload. */
-    if (!alertBox.hidden) {
+    if (!alertBox.hidden && !(plain && !failed)) {
       const html = metricsHtml(turn);
       alertMetrics.innerHTML = html;
       alertMetrics.hidden = !html;
@@ -334,15 +356,17 @@ export async function ask(question, origin) {
        * strip is what explains the gap. */
       bubble.remove();
       userBubble.remove();
-      dropPendingQuestion();
+      if (!plain) dropPendingQuestion();
       if (!transcript.querySelector('.msg')) transcript.appendChild(intro);
-      if (failed) {
+      if (failed && !plain) {
         input.value = question;   // hand the question back rather than lose it
         autoGrow();
       }
     }
     inFlight = null;
     setBusy(false);
+    plainBtn.hidden = !canAskPlain();
+    plainBtn.disabled = false;
     scrollDown(false);
   }
 }
@@ -392,10 +416,16 @@ transcript.addEventListener('click', (e) => {
 
 document.getElementById('alert-close').addEventListener('click', clearError);
 
+plainBtn.addEventListener('click', () => {
+  if (lastAsk && !sendBtn.disabled) ask(lastAsk.question, null, true);
+});
+
 clearBtn.addEventListener('click', () => {
   if (inFlight) inFlight.abort();
   messages = [];
   conversation = crypto.randomUUID();
+  lastAsk = null;
+  plainBtn.hidden = true;
   resetTurns();
   clearError();
   transcript.innerHTML = '';
@@ -437,4 +467,6 @@ onSessionReset(() => {
   if (inFlight) inFlight.abort();
   messages = [];
   conversation = crypto.randomUUID();
+  lastAsk = null;
+  plainBtn.hidden = true;
 });

@@ -41,6 +41,8 @@ const STATUS_TITLE = 'The LLM proxy on the gateway this showcase talks to: each 
 
 export let activeId = null;
 export let activeShowcase = null;
+/* The "Ask without the policy" button, with POLICY_COMPARISON_ENABLED=true (demo.env). */
+export let policyComparison = false;
 
 /* Per-viewer convenience only (which provider was last picked in this
  * browser) -- never state anything else depends on being read back
@@ -275,6 +277,7 @@ export async function loadRegistry() {
     showcases.clear();
     for (const item of data.showcases || []) showcases.set(item.id, item);
     a2aEnabled = Boolean(data.a2a);
+    policyComparison = data.policyComparison === true;
     document.getElementById('nav-a2a').hidden = !a2aEnabled;
     GROUPS = Object.fromEntries((data.groups || []).map((g) => [g.id, [g.title, g.icon, g.text, g.order]]));
   } catch (error) {

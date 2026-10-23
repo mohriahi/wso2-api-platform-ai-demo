@@ -215,6 +215,18 @@ and `baseline` (the `groups` list of `ai-chatbot/showcases.json`). A card
 that also belongs to another row stays there. This takes effect when the page
 is reloaded, without a restart.
 
+### Show the "Ask without the policy" button
+
+On the LLM cards, this button sends the last question again through the
+gateway with none of the card's policies, so the audience sees the difference.
+It is hidden by default. To show it:
+
+```
+POLICY_COMPARISON_ENABLED=true
+```
+
+This takes effect when the page is reloaded, without a restart.
+
 ### Turn on the A2A Gateway page (beta)
 
 A third page where the assistant hands the customer's question to another
