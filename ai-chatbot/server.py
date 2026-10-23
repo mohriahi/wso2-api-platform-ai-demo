@@ -79,11 +79,14 @@ SHOWCASES_FILE = os.path.join(HERE, "showcases.json")
 def _load_providers():
     path = os.path.join(os.path.dirname(HERE), "providers.json")
     with open(path) as handle:
-        providers = json.load(handle)
+        providers = [p for p in json.load(handle) if p.get("enabled", True)]
     # "enabled": false takes a provider out of every endpoint below (its
     # showcases 503 as "not configured") without deleting its config --
     # useful for one whose key isn't set up yet, or one being retired.
-    return {p["id"]: p for p in providers if p.get("enabled", True)}
+    # DISABLED_PROVIDERS in demo.env does the same on this machine only. The
+    # first provider always stays: the key names are built on it.
+    off = {name.strip() for name in setting("DISABLED_PROVIDERS").split(",")} - {providers[0]["id"]}
+    return {p["id"]: p for p in providers if p["id"] not in off}
 
 
 PROVIDERS = _load_providers()
@@ -601,7 +604,7 @@ def resolve_gateway(entry, provider_id=DEFAULT_PROVIDER_ID):
     # A card with its own "route" talks to one LlmProxy spanning two
     # providers (route.defaultProvider + route.routedProvider), whatever the
     # provider dropdown says, in defaultProvider's wire format. Unwired when
-    # either one is disabled in providers.json.
+    # either one is disabled.
     route = entry.get("route")
     if route:
         ctx = route.get("context") or ""
@@ -609,7 +612,7 @@ def resolve_gateway(entry, provider_id=DEFAULT_PROVIDER_ID):
             return None, "route.context %r is not a plain path" % ctx
         disabled = [p for p in (route.get("defaultProvider"), route.get("routedProvider")) if p not in PROVIDERS]
         if disabled:
-            return None, "route needs %s, disabled in providers.json" % " and ".join(map(str, disabled))
+            return None, "route needs %s, which is disabled" % " and ".join(map(str, disabled))
         return (gateway_url() + own_path(ctx.rstrip("/")) + PROVIDERS[route["defaultProvider"]]["messagesSuffix"],
                 "showcases.json route")
 
@@ -623,7 +626,7 @@ def resolve_gateway(entry, provider_id=DEFAULT_PROVIDER_ID):
             return None, "mcp.context %r is not a plain path" % ctx
         provider = mcp.get("provider")
         if provider not in PROVIDERS:
-            return None, "mcp needs %s, disabled in providers.json" % provider
+            return None, "mcp needs %s, which is disabled" % provider
         if PROVIDERS[provider]["wire"] != "openai":
             return None, "mcp.provider %s must speak the OpenAI format" % provider
         return gateway_url(entry) + own_path(ctx.rstrip("/")) + "/mcp", "showcases.json mcp"

@@ -35,6 +35,9 @@ version of every card; a provider left blank is simply skipped.
 | Mistral | `MISTRAL_API_KEY` | [Mistral console](https://console.mistral.ai/api-keys). A free plan is enough. |
 | Gemini | `GEMINI_API_KEY` | [Google AI Studio](https://aistudio.google.com/apikey). Turn billing on: the free tier allows only about 20 requests per model per day. |
 
+Gemini is left out by default: to use it, take it out of `DISABLED_PROVIDERS`
+in `demo.env`.
+
 We recommend **Anthropic and Mistral together**: it is the combination the
 demo is tested with. Mistral matters even if you mostly show another
 provider: the gateway uses a Mistral model of its own to understand the
@@ -309,9 +312,13 @@ move traffic between the two, the other cards use one of them. The spend
 limit and cost-based routing also need the model's price in
 `ai-gateway/configs/llm-pricing/model_prices.json`.
 
-To leave a provider out for everyone, set `"enabled": false` on it. After a
-change, run `./scripts/run-local.sh`, then
+After changing a model, run `./scripts/run-local.sh`, then
 `./scripts/python/provision_showcases.py`.
+
+To leave a provider out on this machine, list it in `DISABLED_PROVIDERS` in
+`demo.env` (Gemini, by default; Anthropic cannot be left out). To leave it
+out for everyone, set `"enabled": false` on it. Then run
+`./scripts/run-local.sh`: a few minutes when a provider comes back.
 
 ### Use an AI Workspace and a gateway that already run elsewhere
 

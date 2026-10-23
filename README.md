@@ -152,7 +152,8 @@ service.
 - **API keys**: we recommend [Anthropic](https://platform.claude.com/settings/keys)
   (with credit) and [Mistral](https://console.mistral.ai/api-keys) (a free
   key is enough). [Gemini](https://aistudio.google.com/apikey) works too, with
-  billing on: its free tier is too small for a demo.
+  billing on: its free tier is too small for a demo. It is left out by
+  default (`DISABLED_PROVIDERS` in `demo.env`).
 
 Optional: the third-party cards (Azure, AWS Bedrock, Jev) and sign-in for the
 MCP cards need an account with that service. Until it is set up, the card is

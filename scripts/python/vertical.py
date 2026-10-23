@@ -15,8 +15,8 @@ VERTICAL_ID = setting("DEMO_VERTICAL", "telco")
 FOLDER = ROOT / "verticals" / VERTICAL_ID
 # Each business has its own project in AI Workspace.
 PROJECT_ID = VERTICAL_ID
-# The businesses the gateway is already set up for, one per line: run-local.sh
-# sets up a business only the first time it is chosen.
+# What the gateway is already set up for, one "<business>/<provider>" per line:
+# run-local.sh sets each up only the first time it is chosen.
 PROVISIONED = ROOT / "verticals" / ".set-up"
 
 

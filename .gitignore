@@ -15,7 +15,7 @@ secrets/*
 
 # --- this machine's settings, copied from demo.env.example on the first run
 demo.env
-# --- the businesses the gateway is set up for (see scripts/run-local.sh)
+# --- what the gateway is set up for (see scripts/run-local.sh)
 verticals/.set-up
 !api-platform.env.example
 

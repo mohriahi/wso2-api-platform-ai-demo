@@ -71,11 +71,12 @@ echo "### 5/6 ai-chatbot"
 
 # ==== Step 6/6: the business ==================================================
 # Each business (DEMO_VERTICAL) has its own project in AI Workspace and its own
-# routes on the gateways. The first time a business is chosen, it is set up
-# (a few minutes); after that, switching takes a minute or two.
+# routes on the gateways. The first time a business, or a provider
+# (DISABLED_PROVIDERS), is chosen, it is set up (a few minutes); after that,
+# switching takes a minute or two.
 echo "### 6/6 business: ${DEMO_VERTICAL:-telco}"
-if ! grep -qx "${DEMO_VERTICAL:-telco}" "$ROOT/verticals/.set-up" 2>/dev/null; then
-  echo "  first time for this business: setting the gateway up (log: $LOGS/provisioning.log)"
+if ! "$PYTHON" "$ROOT/scripts/python/provision_showcases.py" --is-set-up 2>/dev/null; then
+  echo "  first time for this business or provider: setting the gateway up (log: $LOGS/provisioning.log)"
   "$PYTHON" "$ROOT/scripts/python/provision_showcases.py" >"$LOGS/provisioning.log" 2>&1
 fi
 

@@ -592,6 +592,16 @@ KEYED_PROVIDERS = [p for p in PROVIDERS if provider_key(p)]
 PROVIDER_BY_ID = {p["id"]: p for p in KEYED_PROVIDERS}
 
 
+def to_set_up() -> set:
+    """This business with each provider it uses, as lines of verticals/.set-up."""
+    return {f"{VERTICAL_ID}/{p['id']}" for p in KEYED_PROVIDERS}
+
+
+def already_set_up() -> set:
+    """What the gateway is already set up for."""
+    return set(PROVISIONED.read_text().split()) if PROVISIONED.exists() else set()
+
+
 # =============================================================================
 # 2b. Cross-provider lanes -- one LlmProxy spanning two LlmProviders, so they
 #     can't come from lane_templates(), which is instantiated per provider.
@@ -1431,11 +1441,15 @@ def without_existing(work: list) -> list:
 def main():
     args = sys.argv[1:]
     flags = {a for a in args if a.startswith("--")}
-    known_flags = {"--check", "--skip-existing"}
+    known_flags = {"--check", "--skip-existing", "--is-set-up"}
     unknown_flags = flags - known_flags
     if unknown_flags:
         sys.exit(f"unknown flag(s): {sorted(unknown_flags)}. Known: {', '.join(sorted(known_flags))}")
     skip_existing = "--skip-existing" in flags
+    # run-local.sh asks first: is this business set up for every provider it
+    # uses? Exit code 0 if so.
+    if "--is-set-up" in flags:
+        sys.exit(0 if to_set_up() <= already_set_up() else 1)
 
     requested = [a for a in args if not a.startswith("--")] or DEFAULT_IDS
     unknown = [r for r in requested if r not in ALL_LANES and r not in MCP_PROXIES and r not in A2A_AGENTS]
@@ -1477,11 +1491,10 @@ def main():
                       "the keys issued so far")
             restart_ai_chatbot()
 
-    # Remembers that the gateway is set up for this business: run-local.sh
-    # sets a business up only the first time it is chosen.
+    # Remembers what the gateway is set up for: run-local.sh sets a business,
+    # or a provider, up only the first time it is chosen.
     if not [a for a in args if not a.startswith("--")]:
-        done = set(PROVISIONED.read_text().split()) if PROVISIONED.exists() else set()
-        PROVISIONED.write_text("\n".join(sorted(done | {VERTICAL_ID})) + "\n")
+        PROVISIONED.write_text("\n".join(sorted(already_set_up() | to_set_up())) + "\n")
     print("\ndone." + (" ai-chatbot restarted with the new keys." if state["keys_changed"] else ""))
 
 

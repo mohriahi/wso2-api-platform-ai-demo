@@ -19,7 +19,7 @@ import time
 import urllib.error
 import urllib.request
 
-from target import ROOT, WORKSPACE_URL, ADMIN_USERNAME, ADMIN_PASSWORD, REMOTE, Gateway, read_env_file
+from target import ROOT, WORKSPACE_URL, ADMIN_USERNAME, ADMIN_PASSWORD, REMOTE, Gateway, read_env_file, setting
 from vertical import for_business
 
 # One entry per upstream LLM, loaded from providers.json at the repo root --
@@ -86,7 +86,10 @@ def load_providers() -> list:
         p["appId"] = f"ai-chatbot-{p['id']}"
         p["appDisplayName"] = f"AI Chatbot ({p['displayName']})"
         p["appDescription"] = f"Public chatbot showcase — single key for all the {p['displayName']} lanes"
-    return providers
+    # DISABLED_PROVIDERS in demo.env leaves providers out on this machine. The
+    # first one always stays: the names of the routes and keys are built on it.
+    off = {name.strip() for name in setting("DISABLED_PROVIDERS").split(",")} - {providers[0]["id"]}
+    return [p for p in providers if p["id"] not in off]
 
 
 PROVIDERS = load_providers()
