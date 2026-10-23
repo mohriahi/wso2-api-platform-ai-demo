@@ -2346,7 +2346,7 @@
             {
               "ask": "What plan am I on, and how much data have I used this month?",
               "expect": {
-                "text": "The gateway offers list_plans and get_account_details, no change_plan. get_account_details goes through, as on the previous card."
+                "text": "The gateway offers list_plans, get_account_details and order_replacement_sim, no change_plan. get_account_details goes through, as on the previous card."
               }
             }
           ],

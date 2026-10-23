@@ -410,9 +410,12 @@ def load_showcases():
     """
     try:
         with open(SHOWCASES_FILE) as handle:
-            raw = json.loads(re.sub(r"\{([A-Z][A-Z0-9_]*)\}", _demo_setting, handle.read()))
+            raw = json.loads(handle.read())
+        # The business's own wording first, then the demo.env settings
+        # ({PEAK_HOURS}...), so its cards can name them too.
         if isinstance(raw, dict):
             raw = for_business(raw)
+        raw = json.loads(re.sub(r"\{([A-Z][A-Z0-9_]*)\}", _demo_setting, json.dumps(raw, ensure_ascii=False)))
     except OSError:
         if not _REGISTRY["list"]:
             _install_registry([dict(_FALLBACK_ENTRY)], "showcases.json not found")

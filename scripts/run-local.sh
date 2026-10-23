@@ -48,6 +48,9 @@ docker network inspect "$DEMO_NAME-mcp" >/dev/null 2>&1 || docker network create
 # (A2A_ENABLED in demo.env).
 if [[ "${A2A_ENABLED:-false}" == true ]]; then
   "$ROOT/scripts/a2a-compose.sh" up -d --build --remove-orphans >"$LOGS/a2a.log" 2>&1
+  # The agents read the business's replies when they start: recreated on
+  # every run, like the MCP servers, so an edit to verticals/ is picked up.
+  "$ROOT/scripts/a2a-compose.sh" up -d --force-recreate --no-deps acme-agent partner-agent >>"$LOGS/a2a.log" 2>&1
 else
   "$ROOT/scripts/a2a-compose.sh" down >"$LOGS/a2a.log" 2>&1
 fi
