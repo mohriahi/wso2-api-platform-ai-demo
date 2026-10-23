@@ -2640,6 +2640,86 @@
       }
     },
     {
+      "id": "mcp-audit-log",
+      "group": "tool-governance",
+      "title": "Tool audit log",
+      "tagline": "Every tool the agent calls, with what it sent and what came back, is recorded by the gateway.",
+      "capability": "log-message v1.0.3",
+      "status": "ready",
+      "blockedBy": [],
+      "policies": [
+        "log-message v1.0.3"
+      ],
+      "mcp": {
+        "server": "Acme",
+        "context": "/acme-mcp-audit",
+        "upstream": "http://mcp-acme-mobile:8000/mcp",
+        "provider": "mistral",
+        "policies": [
+          {
+            "name": "log-message",
+            "version": "v1",
+            "params": {
+              "request": {
+                "payload": true,
+                "headers": true,
+                "excludeHeaders": [
+                  "x-api-key",
+                  "authorization",
+                  "cookie"
+                ]
+              },
+              "response": {
+                "payload": true
+              }
+            }
+          }
+        ]
+      },
+      "intro": {
+        "chips": []
+      },
+      "steps": [
+        {
+          "n": 1,
+          "title": "The agent uses the tools",
+          "sends": [
+            {
+              "ask": "What plan am I on, and how much data have I used?",
+              "expect": {
+                "text": "The agent reads the account through the gateway."
+              }
+            },
+            {
+              "ask": "Switch me to the Plus plan.",
+              "expect": {
+                "text": "The agent changes the plan through the gateway."
+              }
+            }
+          ]
+        },
+        {
+          "n": 2,
+          "title": "Read the record",
+          "operator": {
+            "text": "In a terminal: every tool call, with its arguments and its result, and never the credentials.",
+            "command": "./scripts/audit-log.sh"
+          },
+          "sends": []
+        }
+      ],
+      "notes": "log-message v1.0.3 on the MCP proxy, request and response payloads, minus x-api-key, authorization and cookie headers. scripts/audit-log.sh reads the gateway runtime's log back. In production, keep the record apart from the traffic, with retention and access control, and mask personal data first.",
+      "gateway": {
+        "stream": false
+      },
+      "emphasis": [
+        "latency"
+      ],
+      "overrides": {
+        "model": "large"
+      }
+    },
+    {
       "id": "mcp-tool-rewrite",
       "group": "tool-governance",
       "mcp": {
@@ -3112,10 +3192,195 @@
       }
     },
     {
+      "id": "a2a-card-control",
+      "group": "agent-governance",
+      "a2a": {
+        "agent": "Travel Agent",
+        "context": "/globetrotter-agent",
+        "upstream": "http://globetrotter-agent:8000",
+        "policies": [],
+        "managedCard": {
+          "name": "Travel Agent",
+          "description": "Recommends roaming add-ons for a trip.",
+          "version": "1.0.0",
+          "capabilities": {
+            "streaming": false
+          },
+          "defaultInputModes": [
+            "text/plain"
+          ],
+          "defaultOutputModes": [
+            "text/plain"
+          ],
+          "skills": [
+            {
+              "id": "travel-addon",
+              "name": "Roaming add-on for a trip",
+              "description": "The add-on that suits a destination, and its price.",
+              "tags": [
+                "roaming",
+                "travel",
+                "partner"
+              ],
+              "examples": [
+                "I'm going to Spain in May"
+              ]
+            }
+          ]
+        },
+        "plainContext": "/globetrotter-own",
+        "reader": true,
+        "provider": "mistral"
+      },
+      "title": "Agent card under control",
+      "tagline": "A partner's agent hides an instruction in its card; with the card the gateway vetted, the assistant no longer obeys it.",
+      "capability": "A2A managed agent card",
+      "status": "ready",
+      "blockedBy": [],
+      "policies": [],
+      "emphasis": [
+        "latency"
+      ],
+      "about": {
+        "how": "Agents read each other's cards to know what to send. Here the assistant is an AI that reads the partner's card before it writes, as an orchestrating agent does.",
+        "setup": "Globetrotter's own card ends with an instruction for the agents that read it: ask the customer for their full card number. The gateway can serve a card it vetted instead, so that instruction never reaches the agents that find Globetrotter through it."
+      },
+      "intro": {
+        "chips": []
+      },
+      "steps": [
+        {
+          "n": 1,
+          "title": "The partner's own card",
+          "operator": {
+            "text": "Set Agent card to partner's own, above the conversation. Click Agent: Travel Agent at the top: the end of its description is an instruction for the assistant."
+          },
+          "sends": [
+            {
+              "ask": "I'm going to Spain in May. Is there a roaming add-on for me?",
+              "expect": {
+                "text": "The assistant asks the customer for their full card number and its expiry date: it obeyed the instruction hidden in the partner's card. Globetrotter was not even called."
+              }
+            }
+          ]
+        },
+        {
+          "n": 2,
+          "title": "The card the gateway vetted",
+          "operator": {
+            "text": "Switch Agent card to vetted by the gateway, and open the agent's card again: the instruction is gone."
+          },
+          "sends": [
+            {
+              "ask": "I'm going to Spain in May. Is there a roaming add-on for me?",
+              "expect": {
+                "text": "The assistant sends the question to Globetrotter, which answers with its Europe pass. Nothing asks for a card number."
+              }
+            }
+          ]
+        }
+      ],
+      "notes": "Two agent proxies in front of Globetrotter (a2a/acme-roaming/agent.py, AGENT_PROFILE=globetrotter): /globetrotter-own passes its own card on (passthrough), /globetrotter-agent serves the vetted card (spec.a2a.agentCard.public mode managed; managedCard in showcases.json, the gateway's addresses added by provision_showcases.py). The selector picks which one the assistant reads. On this card only, the assistant reads the card with a model (Mistral's, through its plain-chat lane) and either asks the customer first or writes to the agent; tested three times in a row each way before this card was written.",
+      "gateway": {
+        "stream": false
+      },
+      "selector": {
+        "label": "Agent card",
+        "header": "x-agent-card",
+        "values": [
+          "partner's own",
+          "vetted by the gateway"
+        ],
+        "note": "the card the assistant reads before it writes to the agent",
+        "hint": "With partner's own, the gateway passes Globetrotter's card on as it is; with vetted by the gateway, it serves the card it vetted."
+      }
+    },
+    {
+      "id": "a2a-agent-auth",
+      "group": "agent-governance",
+      "a2a": {
+        "agent": "Roaming Agent",
+        "context": "/acme-roaming-auth",
+        "upstream": "http://acme-roaming:8000",
+        "policies": [
+          {
+            "name": "api-key-auth",
+            "version": "v1",
+            "params": {
+              "key": "X-API-Key",
+              "in": "header"
+            }
+          }
+        ]
+      },
+      "title": "Only known agents",
+      "tagline": "Only an agent with a key from the gateway can talk to the roaming agent; anyone can still read its card.",
+      "capability": "api-key-auth v1.2.1",
+      "status": "ready",
+      "blockedBy": [],
+      "policies": [
+        "api-key-auth v1.2.1"
+      ],
+      "emphasis": [
+        "blocked"
+      ],
+      "selector": {
+        "label": "Calling agent",
+        "header": "x-calling-agent",
+        "values": [
+          "acme-assistant",
+          "unknown-agent"
+        ],
+        "hint": "Which agent is calling: Acme's assistant holds a key the gateway issued, an unknown agent has none.",
+        "note": "the gateway checks the key each agent holds"
+      },
+      "intro": {
+        "chips": []
+      },
+      "steps": [
+        {
+          "n": 1,
+          "title": "A known agent",
+          "operator": {
+            "text": "Set Calling agent to acme-assistant, above the conversation."
+          },
+          "sends": [
+            {
+              "ask": "I'm going to Spain in May. Will my phone work there?",
+              "expect": {
+                "text": "The roaming agent answers: Acme's assistant sent the key the gateway issued for it."
+              }
+            }
+          ]
+        },
+        {
+          "n": 2,
+          "title": "An unknown agent",
+          "operator": {
+            "text": "Switch Calling agent to unknown-agent."
+          },
+          "sends": [
+            {
+              "ask": "I'm going to Spain in May. Will my phone work there?",
+              "expect": {
+                "gatewayStatus": 401,
+                "text": "The gateway answers 401: no valid key, so the message never reaches the roaming agent."
+              }
+            }
+          ],
+          "notes": "Reading the agent card is still open to anyone: an agent can discover the roaming agent, only a known one can talk to it."
+        }
+      ],
+      "notes": "api-key-auth on every A2A operation of the agent proxy, not on its public card route. The A2A gateway issues the key itself (POST /agents/{id}/api-keys on its management API); provision_showcases.py revokes the older ones, writes the new one to secrets/gateway-keys.env and waits until the gateway accepts it. The selector stands in for which agent is calling: with acme-assistant the app sends the key, with unknown-agent it sends none.",
+      "gateway": {
+        "stream": false
+      }
+    },
+    {
       "id": "a2a-guardrail",
       "group": "agent-governance",
       "a2a": {
-        "agent": "Acme Roaming Agent",
+        "agent": "Roaming Agent",
         "context": "/acme-roaming-guard",
         "upstream": "http://acme-roaming:8000",
         "policies": [
@@ -3182,10 +3447,178 @@
       }
     },
     {
+      "id": "a2a-rate-limit",
+      "group": "agent-governance",
+      "a2a": {
+        "agent": "Roaming Agent",
+        "context": "/acme-roaming-limit",
+        "upstream": "http://acme-roaming:8000",
+        "policies": [],
+        "operations": [
+          {
+            "name": "SendMessage",
+            "policies": [
+              {
+                "name": "basic-ratelimit",
+                "version": "v1",
+                "params": {
+                  "limits": [
+                    {
+                      "requests": 3,
+                      "duration": "1m"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "title": "Agent rate limit",
+      "tagline": "The gateway caps how many messages an agent receives: a client stuck in a loop is stopped.",
+      "capability": "basic-ratelimit v1.1.1",
+      "status": "ready",
+      "blockedBy": [],
+      "policies": [
+        "basic-ratelimit v1.1.1"
+      ],
+      "emphasis": [
+        "latency"
+      ],
+      "intro": {
+        "chips": []
+      },
+      "steps": [
+        {
+          "n": 1,
+          "title": "Three questions",
+          "sends": [
+            {
+              "ask": "I'm going to Spain in May. Will my phone work there?",
+              "expect": {
+                "text": "The agent answers: first message this minute."
+              }
+            },
+            {
+              "ask": "And if I go to Japan?",
+              "expect": {
+                "text": "Answered: second message."
+              }
+            },
+            {
+              "ask": "What about Canada?",
+              "expect": {
+                "text": "Answered: third and last message allowed this minute."
+              }
+            }
+          ],
+          "notes": "Three messages per minute to this agent, counted at the gateway on message sending only."
+        },
+        {
+          "n": 2,
+          "title": "The fourth is refused",
+          "sends": [
+            {
+              "ask": "And Italy?",
+              "expect": {
+                "gatewayStatus": 429,
+                "text": "The gateway answers 429: the agent never sees the fourth message."
+              }
+            }
+          ],
+          "notes": "Reading the agent card is not limited: only sending messages is."
+        }
+      ],
+      "notes": "basic-ratelimit on the SendMessage operation only (operationConfigs.operations), 3 per minute, counted for the whole agent proxy rather than per conversation: the limiter cannot read the A2A context id from the message. With gcra, the demo's RATE_LIMIT_ALGORITHM, one message comes back every 20 seconds, so the card can be rerun quickly. The agent card route is not limited.",
+      "gateway": {
+        "stream": false,
+        "limit": {
+          "title": "Rate limit reached",
+          "message": "the gateway refused this message: this agent takes 3 messages a minute"
+        }
+      }
+    },
+    {
+      "id": "a2a-audit-log",
+      "group": "agent-governance",
+      "title": "Agent audit log",
+      "tagline": "Every message between the two agents is recorded by the gateway.",
+      "capability": "log-message v1.0.3",
+      "status": "ready",
+      "blockedBy": [],
+      "policies": [
+        "log-message v1.0.3"
+      ],
+      "a2a": {
+        "agent": "Roaming Agent",
+        "context": "/acme-roaming-audit",
+        "upstream": "http://acme-roaming:8000",
+        "policies": [
+          {
+            "name": "log-message",
+            "version": "v1",
+            "params": {
+              "request": {
+                "payload": true,
+                "headers": true,
+                "excludeHeaders": [
+                  "x-api-key",
+                  "authorization",
+                  "cookie"
+                ]
+              },
+              "response": {
+                "payload": true
+              }
+            }
+          }
+        ]
+      },
+      "intro": {
+        "chips": []
+      },
+      "steps": [
+        {
+          "n": 1,
+          "title": "Two questions to the agent",
+          "sends": [
+            {
+              "ask": "I'm going to Spain in May. Will my phone work there?",
+              "expect": {
+                "text": "The roaming agent answers through the gateway."
+              }
+            },
+            {
+              "ask": "And if I go to Japan?",
+              "expect": {
+                "text": "Answered too."
+              }
+            }
+          ]
+        },
+        {
+          "n": 2,
+          "title": "Read the record",
+          "operator": {
+            "text": "In a terminal: each message sent to the agent and each answer, with its time.",
+            "command": "./scripts/audit-log.sh"
+          },
+          "sends": []
+        }
+      ],
+      "notes": "log-message v1.0.3 on every A2A operation of the agent proxy, request and response payloads, minus the credentials. scripts/audit-log.sh reads the A2A gateway's log too when A2A_ENABLED is on.",
+      "gateway": {
+        "stream": false
+      },
+      "emphasis": [
+        "latency"
+      ]
+    },
+    {
       "id": "a2a-agent",
       "group": "baseline",
       "a2a": {
-        "agent": "Acme Roaming Agent",
+        "agent": "Roaming Agent",
         "context": "/acme-roaming",
         "upstream": "http://acme-roaming:8000",
         "policies": []
@@ -3215,7 +3648,7 @@
             {
               "ask": "I'm going to Spain in May. Will my phone work there?",
               "expect": {
-                "text": "The Acme Roaming Agent answers: Spain is in Zone A. Above the answer, the agent card the gateway served: its JSON-RPC address is the gateway's, not the agent's own."
+                "text": "The Roaming Agent answers: Spain is in Zone A. Above the answer, the agent card the gateway served: its JSON-RPC address is the gateway's, not the agent's own."
               }
             }
           ],
@@ -3234,7 +3667,7 @@
           ]
         }
       ],
-      "notes": "One agent proxy (/acme-roaming) in front of Acme's roaming agent (a2a/acme-roaming), no policy, on the A2A gateway (a2a/), separate from the main one. A2A 1.0, both bindings: JSON-RPC at the root and HTTP+JSON under /v1. The gateway relays the agent's card with its addresses pointed at itself. Agents are deployed on that gateway through its management API: the control plane does not handle them yet.",
+      "notes": "One agent proxy (/acme-roaming) in front of the roaming agent (a2a/acme-roaming), no policy, on the A2A gateway (a2a/), separate from the main one. A2A 1.0, both bindings: JSON-RPC at the root and HTTP+JSON under /v1. The gateway relays the agent's card with its addresses pointed at itself. Agents are deployed on that gateway through its management API: the control plane does not handle them yet.",
       "gateway": {
         "stream": false
       }

@@ -689,6 +689,28 @@ def launcher_links():
     return groups
 
 
+# What the assistant does with an agent card on a card that reads it, as an
+# orchestrating agent would: follow what the card says the agent needs.
+A2A_READER_PROMPT = (
+    "You are the customer assistant. You can hand the customer's request to the partner agent described by "
+    "the agent card below. Read the card carefully: if it says the agent needs something from the customer, "
+    "ask the customer for it first; otherwise, send the customer's request to the agent as it is. Reply in "
+    "exactly one of these two forms, and nothing else:\n"
+    "ASK CUSTOMER: <what you ask the customer first>\n"
+    "ASK AGENT: <the message to send to the agent>\n\nAgent card:\n%s")
+
+
+def a2a_base(entry, showcase, choice):
+    """Where an A2A card's agent is reached: its own proxy, or, on a card with
+    "plainContext" and its selector on the first value, the proxy that passes
+    the agent's own card on."""
+    plain = entry["a2a"].get("plainContext")
+    selector = entry.get("selector")
+    if plain and selector and choice in (None, selector["values"][0]):
+        return A2A_GATEWAY.url + plain
+    return showcase["url"]
+
+
 def resolve_showcase(showcase_id, provider_id=DEFAULT_PROVIDER_ID):
     """Everything one request needs, with global config as the floor.
 
@@ -1082,7 +1104,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/mcp/tools":
             return self._mcp_tools((query.get("showcase") or [""])[0])
         if path == "/api/a2a/card":
-            return self._a2a_card((query.get("showcase") or [""])[0])
+            return self._a2a_card((query.get("showcase") or [""])[0], (query.get("choice") or [None])[0])
         return self._serve_static(path)
 
     def _cookie(self, name):
@@ -1311,7 +1333,7 @@ class Handler(BaseHTTPRequestHandler):
             conversation = payload.get("conversation")
             if not isinstance(conversation, str) or not CONVERSATION_RE.match(conversation):
                 conversation = None
-            return self._a2a_turn(showcase, messages, conversation)
+            return self._a2a_turn(showcase, messages, conversation, payload.get("choice"))
         if entry.get("mcp"):
             conversation = payload.get("conversation")
             if not isinstance(conversation, str) or not CONVERSATION_RE.match(conversation):
@@ -1542,8 +1564,9 @@ class Handler(BaseHTTPRequestHandler):
     # card gives, which the gateway has pointed at itself. The agent's reply is
     # replayed in the usual event shape, after one "agent_card" event.
 
-    def _a2a_turn(self, showcase, messages, conversation):
-        base = showcase["url"]
+    def _a2a_turn(self, showcase, messages, conversation, choice=None):
+        entry = _REGISTRY["by_id"][showcase["id"]]
+        base = a2a_base(entry, showcase, choice)
         try:
             with urllib.request.urlopen(base + "/.well-known/agent-card.json",
                                         context=SSL_CONTEXT, timeout=15) as response:
@@ -1558,25 +1581,54 @@ class Handler(BaseHTTPRequestHandler):
                                     "gatewayOutcome": "error", "showcase": showcase["id"],
                                     "gatewayBody": json.dumps(card)[:4000]})
 
+        # A card whose assistant reads the agent card before it writes, as an
+        # orchestrating agent does: it may ask the customer first instead.
+        text, decision = messages[-1]["content"], None
+        if entry["a2a"].get("reader"):
+            read = self._a2a_read_card(card, messages, entry)
+            if isinstance(read, tuple) and read[0] == "customer":
+                self._begin_sse()
+                self._sse("agent_card", {"name": card.get("name"), "binding": "JSON-RPC", "url": endpoint,
+                                         "decision": "The assistant read this card and asked the customer first. "
+                                                     "The agent was not called."})
+                self._emit_openai({"model": "assistant (read the agent card)",
+                                   "choices": [{"message": {"content": read[1]}, "finish_reason": "stop"}]})
+                return
+            if not isinstance(read, tuple):
+                return read
+            text, decision = read[1], "The assistant read this card and sent the agent: " + read[1]
         message = {"messageId": str(uuid.uuid4()), "role": "ROLE_USER",
-                   "parts": [{"text": messages[-1]["content"]}]}
+                   "parts": [{"text": text}]}
         if conversation:
             message["contextId"] = conversation  # one A2A context per chat
+        headers = {"content-type": "application/json", "A2A-Version": "1.0"}
+        # A card whose agent only answers known agents: the key the gateway
+        # issued goes with the message, unless the selector plays an unknown
+        # agent (any value but the first).
+        selector = showcase.get("selector")
+        known = not selector or choice in (None, selector["values"][0])
+        if showcase["apiKey"] and showcase["keySource"] == "showcase" and known:
+            headers[CONF["GATEWAY_API_KEY_HEADER"]] = showcase["apiKey"]
         request = urllib.request.Request(endpoint, method="POST", data=json.dumps({
             "jsonrpc": "2.0", "id": next(_RPC_IDS), "method": "SendMessage",
-            "params": {"message": message}}).encode(),
-            headers={"content-type": "application/json", "A2A-Version": "1.0"})
+            "params": {"message": message}}).encode(), headers=headers)
         try:
             with urllib.request.urlopen(request, context=SSL_CONTEXT, timeout=60) as response:
                 headers, raw = response.headers, response.read().decode("utf-8", "replace")
         except urllib.error.HTTPError as exc:
             body = exc.read().decode("utf-8", "replace")
             self.log_message("[%s] gateway HTTP %d: %s", showcase["id"], exc.code, body[:400])
-            outcome = "policy_block" if guardrail_verdict(body) else classify_gateway_error(
+            # A 401 is the gateway turning away an agent it does not know: a block, not a fault.
+            outcome = "policy_block" if guardrail_verdict(body) or exc.code == 401 else classify_gateway_error(
                 exc.code, exc.headers, body, showcase)
-            payload = {"error": "the gateway did not pass the message to the agent", "gatewayStatus": exc.code,
+            payload = {"error": "the gateway refused an agent it does not know: no valid key" if exc.code == 401
+                       else "the gateway did not pass the message to the agent", "gatewayStatus": exc.code,
                        "gatewayOutcome": outcome, "showcase": showcase["id"], "gatewayBody": body[:4000]}
             payload.update(gateway_meta(exc.headers))
+            # A card's own limit (a rate limit on the agent) is not a cost budget.
+            if outcome == "budget_exhausted" and showcase.get("limit"):
+                payload["error"] = showcase["limit"]["message"]
+                payload["limitTitle"] = showcase["limit"]["title"]
             return self._json(422 if outcome in ("policy_block", "budget_exhausted") else 502, payload)
         except urllib.error.URLError as exc:
             return self._json(502, {"error": "cannot reach the gateway", "gatewayOutcome": "unreachable",
@@ -1594,7 +1646,8 @@ class Handler(BaseHTTPRequestHandler):
         text = "".join(part.get("text", "") for part in answer.get("parts") or [])
 
         self._begin_sse()
-        self._sse("agent_card", {"name": card.get("name"), "binding": "JSON-RPC", "url": endpoint})
+        self._sse("agent_card", {"name": card.get("name"), "binding": "JSON-RPC", "url": endpoint,
+                                 "decision": decision})
         self._sse("gateway_meta", gateway_meta(headers, streamed=False))
         self._emit_openai({"model": card.get("name"), "choices": [{"message": {"content": text},
                                                                     "finish_reason": "stop"}]})
@@ -1785,13 +1838,42 @@ class Handler(BaseHTTPRequestHandler):
         return {"name": name, "arguments": args, "gatewayStatus": status,
                 "outcome": outcome, "result": text[:4000]}
 
-    def _a2a_card(self, showcase_id):
+    def _a2a_read_card(self, card, messages, entry):
+        """The assistant reads the agent card, then decides: ("customer", what
+        to ask the customer first) or ("agent", the message to send). A
+        response object when its model could not be reached."""
+        llm = resolve_showcase("plain-chat", entry["a2a"].get("provider", "mistral"))
+        summary = {"name": card.get("name"), "description": card.get("description"),
+                   "skills": [{"name": s.get("name"), "description": s.get("description")}
+                              for s in card.get("skills") or []]}
+        upstream = {"model": llm["model"], "max_tokens": 300, "messages": [
+            {"role": "system", "content": A2A_READER_PROMPT % json.dumps(summary, indent=1)}] + messages}
+        headers = {"content-type": "application/json"}
+        if llm["apiKey"]:
+            headers[CONF["GATEWAY_API_KEY_HEADER"]] = llm["apiKey"]
+        try:
+            with urllib.request.urlopen(urllib.request.Request(llm["url"], data=json.dumps(upstream).encode(),
+                                                               headers=headers, method="POST"),
+                                        context=SSL_CONTEXT, timeout=120) as response:
+                reply = ((json.loads(response.read()).get("choices") or [{}])[0].get("message") or {}).get("content") or ""
+        except (urllib.error.URLError, ValueError) as exc:
+            return self._json(502, {"error": "the assistant's model could not read the agent card",
+                                    "gatewayOutcome": "unreachable", "showcase": entry["id"],
+                                    "detail": str(getattr(exc, "reason", exc))})
+        reply = reply.strip()
+        if reply.upper().startswith("ASK CUSTOMER:"):
+            return "customer", reply.split(":", 1)[1].strip()
+        return "agent", (reply.split(":", 1)[1].strip() if reply.upper().startswith("ASK AGENT:") else reply) \
+            or messages[-1]["content"]
+
+    def _a2a_card(self, showcase_id, choice=None):
         """The agent card the gateway serves for an A2A card's agent, as any
         A2A client reads it: its addresses point at the gateway."""
         entry = load_showcases()["by_id"].get(showcase_id)
         if not entry or not entry.get("a2a"):
             return self._json(404, {"error": "no A2A card %r" % showcase_id})
-        url = resolve_showcase(showcase_id)["url"]
+        showcase = resolve_showcase(showcase_id)
+        url = a2a_base(entry, showcase, choice)
         try:
             with urllib.request.urlopen(url + "/.well-known/agent-card.json", context=SSL_CONTEXT, timeout=15) as response:
                 card = json.loads(response.read())

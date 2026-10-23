@@ -168,7 +168,9 @@ function agentDetailHtml(data, note) {
 
 /* One card's server or agent, as the gateway publishes it for that card. */
 async function detailHtml(card, onCard) {
-  const response = await fetch((card.a2a ? '/api/a2a/card' : '/api/mcp/tools') + '?showcase=' + encodeURIComponent(card.id));
+  /* The card's selector can choose which agent card is read: the details follow it. */
+  const choice = card.a2a && !selectorBox.hidden ? '&choice=' + encodeURIComponent(selectorSelect.value) : '';
+  const response = await fetch((card.a2a ? '/api/a2a/card' : '/api/mcp/tools') + '?showcase=' + encodeURIComponent(card.id) + choice);
   const data = await response.json();
   const via = '<code>' + escapeHtml(data.via || '') + '</code>';
   if (card.a2a) {
@@ -494,6 +496,8 @@ function mountShowcase(showcase) {
   selectorBox.hidden = !sel;
   selectorBox.title = (sel && sel.hint) || '';
   selectorLabel.textContent = sel ? sel.label : '';
+  /* What the selector stands in for: a card can say, the customer's token by default. */
+  document.getElementById('selector-note').textContent = (sel && sel.note) || 'from the customer\'s token in production';
   selectorSelect.innerHTML = (sel ? sel.values : []).map((v) => '<option value="' + escapeHtml(v) + '">'
     + escapeHtml(v.charAt(0).toUpperCase() + v.slice(1)) + '</option>').join('');
   /* Its colour changes off the first value, so a switch shows from across the room. */

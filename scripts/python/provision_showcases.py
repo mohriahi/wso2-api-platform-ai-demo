@@ -1031,35 +1031,89 @@ def upsert_mcp_proxy(card: dict):
     }, "MCP proxy")
 
 
+def public_card(card: dict) -> dict:
+    """How the gateway serves the agent's public card: the agent's own, with its
+    addresses pointed at the gateway, or, with "managedCard", a card the gateway
+    vetted and serves itself, the agent's own never reaching the clients."""
+    managed = card["a2a"].get("managedCard")
+    if not managed:
+        return {"mode": "passthrough", "rewriteUrls": True}
+    base = A2A_GATEWAY.url + card["a2a"]["context"]
+    return {"mode": "managed", "content": dict(managed, supportedInterfaces=[
+        {"url": base, "protocolBinding": "JSONRPC", "protocolVersion": "1.0"},
+        {"url": base + "/v1", "protocolBinding": "HTTP+JSON", "protocolVersion": "1.0"}])}
+
+
 def write_agent(card: dict, state: dict):
     """An A2A agent proxy, deployed on the A2A gateway itself through its
     management API: AI Workspace does not handle agents yet. Both A2A bindings
     are exposed, and the agent's card is relayed with its addresses pointed at
     the gateway, so a client that discovers the agent from it comes back
-    through the gateway and its policies."""
+    through the gateway and its policies. With "plainContext", a second proxy
+    passes the agent's own card on, for the card to show the difference."""
+    a2a = card["a2a"]
+    deploy_agent(card["id"], card, a2a["context"], a2a.get("policies", []), a2a.get("operations"), public_card(card))
+    if a2a.get("plainContext"):
+        deploy_agent(card["id"] + "-plain", card, a2a["plainContext"], [], None,
+                     {"mode": "passthrough", "rewriteUrls": True}, " - its own card")
+    if any(p["name"] == "api-key-auth" for p in a2a.get("policies", [])):
+        issue_agent_key(card)
+
+
+def deploy_agent(agent_id: str, card: dict, context: str, policies: list, operations, public: dict,
+                 suffix: str = ""):
     a2a = card["a2a"]
     body = {"apiVersion": "gateway.api-platform.wso2.com/v1", "kind": "Agent",
-            "metadata": {"name": card["id"]},
-            "spec": {"displayName": " - ".join(filter(None, (a2a.get("agent"), card.get("title")))),
-                     "version": "v1.0", "context": a2a["context"], "upstream": {"url": a2a["upstream"]},
+            "metadata": {"name": agent_id},
+            "spec": {"displayName": " - ".join(filter(None, (a2a.get("agent"), card.get("title")))) + suffix,
+                     "version": "v1.0", "context": context, "upstream": {"url": a2a["upstream"]},
                      "a2a": {"protocolVersion": "1.0",
                              "operationConfigs": {"transports": [
                                  {"protocolBinding": "JSONRPC", "pathPrefix": "/"},
                                  {"protocolBinding": "HTTP+JSON", "pathPrefix": "/v1"}],
-                                 "policies": a2a.get("policies", [])},
-                             "agentCard": {"public": {"mode": "passthrough", "rewriteUrls": True}}}}}
-    exists = controller_api(A2A_GATEWAY, "GET", f"/agents/{card['id']}")[0] == 200
-    status, resp = (controller_api(A2A_GATEWAY, "PUT", f"/agents/{card['id']}", body) if exists
+                                 "policies": policies,
+                                 # Rules for one A2A operation only, such as SendMessage.
+                                 **({"operations": operations} if operations else {})},
+                             "agentCard": {"public": public}}}}
+    exists = controller_api(A2A_GATEWAY, "GET", f"/agents/{agent_id}")[0] == 200
+    status, resp = (controller_api(A2A_GATEWAY, "PUT", f"/agents/{agent_id}", body) if exists
                     else controller_api(A2A_GATEWAY, "POST", "/agents", body))
     if status not in (200, 201):
         sys.exit(f"  agent proxy failed: {status} {resp}")
-    print("  agent proxy %s on the gateway" % ("updated" if exists else "created"))
+    print("  agent proxy %s %s on the gateway" % (context, "updated" if exists else "created"))
     for _ in range(30):
-        if request("GET", f"{A2A_GATEWAY.url}{a2a['context']}/.well-known/agent-card.json")[0] == 200:
+        if request("GET", f"{A2A_GATEWAY.url}{context}/.well-known/agent-card.json")[0] == 200:
             print("  agent card served by the gateway")
             return
         time.sleep(1)
-    sys.exit(f"  the gateway does not serve {a2a['context']}/.well-known/agent-card.json yet")
+    sys.exit(f"  the gateway does not serve {context}/.well-known/agent-card.json yet")
+
+
+def issue_agent_key(card: dict):
+    """A key the A2A gateway issues for the calling agent, written to
+    secrets/gateway-keys.env like the cards' keys. The agent's older keys are
+    revoked first, so only the new one works."""
+    agent_id = card["id"]
+    status, resp = controller_api(A2A_GATEWAY, "GET", f"/agents/{agent_id}/api-keys")
+    for old in ((resp or {}).get("apiKeys") or [] if status == 200 else []):
+        controller_api(A2A_GATEWAY, "DELETE", f"/agents/{agent_id}/api-keys/{old['name']}")
+    status, resp = controller_api(A2A_GATEWAY, "POST", f"/agents/{agent_id}/api-keys",
+                                  {"name": "assistant-%d" % int(time.time())})
+    if status not in (200, 201):
+        sys.exit(f"  agent key failed: {status} {resp}")
+    var = env_key(agent_id, "API_KEY", DEFAULT_PROVIDER_ID)
+    write_config_env(var, resp["apiKey"]["apiKey"])
+    print(f"  {var} written to secrets/gateway-keys.env")
+    # The gateway loads a new key within a few seconds.
+    message = {"jsonrpc": "2.0", "id": 1, "method": "SendMessage", "params": {"message": {
+        "messageId": "key-check-%d" % int(time.time()), "role": "ROLE_USER", "parts": [{"text": "key check"}]}}}
+    for _ in range(30):
+        if request("POST", A2A_GATEWAY.url + card["a2a"]["context"], message,
+                   {"A2A-Version": "1.0", "X-API-Key": resp["apiKey"]["apiKey"]})[0] == 200:
+            print("  agent key confirmed live on the gateway")
+            return
+        time.sleep(1)
+    sys.exit("  the gateway does not accept the new agent key yet")
 
 
 def issue_key(lane_id: str) -> tuple[str, str]:

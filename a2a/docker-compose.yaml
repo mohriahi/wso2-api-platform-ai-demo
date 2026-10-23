@@ -30,3 +30,15 @@ services:
     mem_limit: 128m
     networks:
       - gateway-network
+
+  # A partner's travel agent, from the same code: its own card hides an
+  # instruction for the agents that read it.
+  globetrotter-agent:
+    build: ../a2a/acme-roaming
+    image: ${DEMO_NAME:-ai-demo}-acme-roaming:latest
+    environment:
+      - AGENT_PROFILE=globetrotter
+      - PUBLIC_URL=http://globetrotter-agent:8000
+    mem_limit: 128m
+    networks:
+      - gateway-network

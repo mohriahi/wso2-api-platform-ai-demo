@@ -108,7 +108,7 @@ Server or any other): see the [IDP Setup](.docs/mcp-identity-provider.md).
 
 With `A2A_ENABLED=true` in `demo.env`, a third page appears. There, the
 assistant does not answer by itself: it passes the customer's question to
-another agent, Acme's roaming agent (`a2a/acme-roaming/`), through the gateway.
+another agent, the roaming agent (`a2a/acme-roaming/`), through the gateway.
 
 The gateway sits between the two agents:
 

@@ -115,7 +115,7 @@ export function metricsHtml(turn) {
     parts.push(chip(turn.afterModel ? 'answer blocked before the customer saw it'
                     : turn.agent ? 'blocked before the agent' : 'blocked before the model', 'is-good'));
   } else if (turn.outcome === 'refused') {
-    parts.push(chip('refused: budget exhausted', 'is-warn'));
+    parts.push(chip('refused: ' + (turn.limitTitle ? turn.limitTitle.toLowerCase() : 'budget exhausted'), 'is-warn'));
   }
 
   const cache = cacheState(turn);
