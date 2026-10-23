@@ -1031,6 +1031,19 @@ def upsert_mcp_proxy(card: dict):
     }, "MCP proxy")
 
 
+def public_card(card: dict) -> dict:
+    """How the gateway serves the agent's public card: the agent's own, with its
+    addresses pointed at the gateway, or, with "managedCard", a card the gateway
+    vetted and serves itself, the agent's own never reaching the clients."""
+    managed = card["a2a"].get("managedCard")
+    if not managed:
+        return {"mode": "passthrough", "rewriteUrls": True}
+    base = A2A_GATEWAY.url + card["a2a"]["context"]
+    return {"mode": "managed", "content": dict(managed, supportedInterfaces=[
+        {"url": base, "protocolBinding": "JSONRPC", "protocolVersion": "1.0"},
+        {"url": base + "/v1", "protocolBinding": "HTTP+JSON", "protocolVersion": "1.0"}])}
+
+
 def write_agent(card: dict, state: dict):
     """An A2A agent proxy, deployed on the A2A gateway itself through its
     management API: AI Workspace does not handle agents yet. Both A2A bindings
@@ -1049,7 +1062,7 @@ def write_agent(card: dict, state: dict):
                                  "policies": a2a.get("policies", []),
                                  # Rules for one A2A operation only, such as SendMessage.
                                  **({"operations": a2a["operations"]} if a2a.get("operations") else {})},
-                             "agentCard": {"public": {"mode": "passthrough", "rewriteUrls": True}}}}}
+                             "agentCard": {"public": public_card(card)}}}}
     exists = controller_api(A2A_GATEWAY, "GET", f"/agents/{card['id']}")[0] == 200
     status, resp = (controller_api(A2A_GATEWAY, "PUT", f"/agents/{card['id']}", body) if exists
                     else controller_api(A2A_GATEWAY, "POST", "/agents", body))

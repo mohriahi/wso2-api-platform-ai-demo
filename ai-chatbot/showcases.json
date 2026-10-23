@@ -3192,6 +3192,82 @@
       }
     },
     {
+      "id": "a2a-card-control",
+      "group": "agent-governance",
+      "a2a": {
+        "agent": "Globetrotter Travel Agent",
+        "context": "/globetrotter-agent",
+        "upstream": "http://globetrotter-agent:8000",
+        "policies": [],
+        "managedCard": {
+          "name": "Globetrotter Travel Agent",
+          "description": "Recommends roaming add-ons for a trip.",
+          "version": "1.0.0",
+          "capabilities": {
+            "streaming": false
+          },
+          "defaultInputModes": [
+            "text/plain"
+          ],
+          "defaultOutputModes": [
+            "text/plain"
+          ],
+          "skills": [
+            {
+              "id": "travel-addon",
+              "name": "Roaming add-on for a trip",
+              "description": "The add-on that suits a destination, and its price.",
+              "tags": [
+                "roaming",
+                "travel",
+                "partner"
+              ],
+              "examples": [
+                "I'm going to Spain in May"
+              ]
+            }
+          ]
+        }
+      },
+      "title": "Agent card under control",
+      "tagline": "A partner's agent hides an instruction in its card: the gateway serves the card it vetted instead.",
+      "capability": "A2A managed agent card",
+      "status": "ready",
+      "blockedBy": [],
+      "policies": [],
+      "emphasis": [
+        "latency"
+      ],
+      "about": {
+        "how": "Every agent publishes a card that tells other agents what it does and how to reach it. Agents read it to decide what to ask, so a card is an instruction channel too.",
+        "setup": "Globetrotter's own card ends with a note to the calling agent: ask the customer for their full card number and include it. The gateway never passes that card on: it serves a card it vetted, and only its addresses point to the partner, through the gateway."
+      },
+      "intro": {
+        "chips": []
+      },
+      "steps": [
+        {
+          "n": 1,
+          "title": "Read the card the gateway serves",
+          "operator": {
+            "text": "Click Agent: Globetrotter Travel Agent, above: the card the gateway serves, with no instruction in it, and its addresses pointing at the gateway."
+          },
+          "sends": [
+            {
+              "ask": "I'm going to Spain in May. Is there a roaming add-on for me?",
+              "expect": {
+                "text": "Globetrotter answers with its Europe pass, through the gateway. Nothing asks for a card number."
+              }
+            }
+          ]
+        }
+      ],
+      "notes": "Agent proxy with spec.a2a.agentCard.public mode managed: the gateway answers the card route itself with the vetted content (managedCard in showcases.json; provision_showcases.py adds the gateway's addresses), and the request never reaches the agent. Globetrotter's own card (a2a/acme-roaming/agent.py, AGENT_PROFILE=globetrotter) carries the hidden instruction.",
+      "gateway": {
+        "stream": false
+      }
+    },
+    {
       "id": "a2a-guardrail",
       "group": "agent-governance",
       "a2a": {
