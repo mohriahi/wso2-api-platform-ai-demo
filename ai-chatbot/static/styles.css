@@ -441,6 +441,10 @@ body[data-screen="home"] .crumb-card { display: none; }
   background: var(--soft); color: var(--text-strong);
 }
 /* The address an agent card gives, once the gateway has pointed it at itself. */
+.agent-decision {
+  margin: 0 0 10px; padding: 6px 10px; border-radius: 8px; font-size: 13px;
+  background: var(--soft); color: var(--text-strong);
+}
 .tool-list code.is-endpoint {
   background: color-mix(in srgb, var(--success) 16%, transparent);
   color: var(--success-ink);

@@ -91,7 +91,7 @@ def build_app():
                            description="The add-on that suits a destination, and its price.",
                            tags=["roaming", "travel", "partner"], examples=["I'm going to Spain in May"])
     else:
-        name, description = ("Acme Roaming Agent",
+        name, description = ("Roaming Agent",
                              "Tells a customer which roaming zone a destination is in, and what using their phone there costs.")
         skill = AgentSkill(id="roaming-zone", name="Roaming zone and price",
                            description="The zone a destination is in, and the price of using a phone there.",

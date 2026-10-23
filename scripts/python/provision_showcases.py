@@ -1049,35 +1049,44 @@ def write_agent(card: dict, state: dict):
     management API: AI Workspace does not handle agents yet. Both A2A bindings
     are exposed, and the agent's card is relayed with its addresses pointed at
     the gateway, so a client that discovers the agent from it comes back
-    through the gateway and its policies."""
+    through the gateway and its policies. With "plainContext", a second proxy
+    passes the agent's own card on, for the card to show the difference."""
+    a2a = card["a2a"]
+    deploy_agent(card["id"], card, a2a["context"], a2a.get("policies", []), a2a.get("operations"), public_card(card))
+    if a2a.get("plainContext"):
+        deploy_agent(card["id"] + "-plain", card, a2a["plainContext"], [], None,
+                     {"mode": "passthrough", "rewriteUrls": True}, " - its own card")
+    if any(p["name"] == "api-key-auth" for p in a2a.get("policies", [])):
+        issue_agent_key(card)
+
+
+def deploy_agent(agent_id: str, card: dict, context: str, policies: list, operations, public: dict,
+                 suffix: str = ""):
     a2a = card["a2a"]
     body = {"apiVersion": "gateway.api-platform.wso2.com/v1", "kind": "Agent",
-            "metadata": {"name": card["id"]},
-            "spec": {"displayName": " - ".join(filter(None, (a2a.get("agent"), card.get("title")))),
-                     "version": "v1.0", "context": a2a["context"], "upstream": {"url": a2a["upstream"]},
+            "metadata": {"name": agent_id},
+            "spec": {"displayName": " - ".join(filter(None, (a2a.get("agent"), card.get("title")))) + suffix,
+                     "version": "v1.0", "context": context, "upstream": {"url": a2a["upstream"]},
                      "a2a": {"protocolVersion": "1.0",
                              "operationConfigs": {"transports": [
                                  {"protocolBinding": "JSONRPC", "pathPrefix": "/"},
                                  {"protocolBinding": "HTTP+JSON", "pathPrefix": "/v1"}],
-                                 "policies": a2a.get("policies", []),
+                                 "policies": policies,
                                  # Rules for one A2A operation only, such as SendMessage.
-                                 **({"operations": a2a["operations"]} if a2a.get("operations") else {})},
-                             "agentCard": {"public": public_card(card)}}}}
-    exists = controller_api(A2A_GATEWAY, "GET", f"/agents/{card['id']}")[0] == 200
-    status, resp = (controller_api(A2A_GATEWAY, "PUT", f"/agents/{card['id']}", body) if exists
+                                 **({"operations": operations} if operations else {})},
+                             "agentCard": {"public": public}}}}
+    exists = controller_api(A2A_GATEWAY, "GET", f"/agents/{agent_id}")[0] == 200
+    status, resp = (controller_api(A2A_GATEWAY, "PUT", f"/agents/{agent_id}", body) if exists
                     else controller_api(A2A_GATEWAY, "POST", "/agents", body))
     if status not in (200, 201):
         sys.exit(f"  agent proxy failed: {status} {resp}")
-    print("  agent proxy %s on the gateway" % ("updated" if exists else "created"))
+    print("  agent proxy %s %s on the gateway" % (context, "updated" if exists else "created"))
     for _ in range(30):
-        if request("GET", f"{A2A_GATEWAY.url}{a2a['context']}/.well-known/agent-card.json")[0] == 200:
+        if request("GET", f"{A2A_GATEWAY.url}{context}/.well-known/agent-card.json")[0] == 200:
             print("  agent card served by the gateway")
-            break
+            return
         time.sleep(1)
-    else:
-        sys.exit(f"  the gateway does not serve {a2a['context']}/.well-known/agent-card.json yet")
-    if any(p["name"] == "api-key-auth" for p in a2a.get("policies", [])):
-        issue_agent_key(card)
+    sys.exit(f"  the gateway does not serve {context}/.well-known/agent-card.json yet")
 
 
 def issue_agent_key(card: dict):
