@@ -4,55 +4,55 @@
       "id": "routing-and-resilience",
       "title": "Routing and resilience",
       "icon": "route",
-      "text": "The gateway picks the provider and the model for each request, and keeps answering when one fails."
+      "text": "The gateway picks the model for each question, and keeps answering when one fails."
     },
     {
       "id": "cost-and-performance",
       "title": "Cost and performance",
       "icon": "gauge",
-      "text": "Fewer tokens and a capped bill: answers from cache, compressed prompts, a cheaper model as spend rises, and a budget the gateway enforces."
+      "text": "Fewer tokens and a capped bill: caching, compressed prompts, cheaper models and budgets, all at the gateway."
     },
     {
       "id": "safety",
       "title": "Safety",
       "icon": "shield",
-      "text": "What reaches the model, and what comes back, is checked at the gateway."
+      "text": "The gateway checks what goes to the model and what comes back."
     },
     {
       "id": "identity",
       "title": "Identity",
       "icon": "user",
-      "text": "Who is calling, and what they may do: tokens from your identity provider, checked at the gateway."
+      "text": "Who is calling and what they may do, checked at the gateway with your identity provider."
     },
     {
       "id": "tool-governance",
       "title": "Tool governance",
       "icon": "wrench",
-      "text": "Which tools the agent sees, what it may pass them, and how often it may call them."
+      "text": "Which tools the agent sees, what it may send them, and how often."
     },
     {
       "id": "third-party-policies",
       "title": "Third-party policies",
       "icon": "plug",
-      "text": "Policies that call an outside service, attached at the gateway like any other: TypeSafe AI's Jev, Azure Content Safety and AWS Bedrock Guardrails. Each one needs its key in secrets/content-safety.env."
+      "text": "Policies that call an outside service: TypeSafe AI's Jev, Azure Content Safety and AWS Bedrock Guardrails. Each one needs its key in secrets/content-safety.env."
     },
     {
       "id": "owasp-llm",
       "title": "OWASP Top 10 for LLMs (2026)",
       "icon": "alert",
-      "text": "The risks of the OWASP Top 10 for LLM applications, 2026 edition, as they would hit {brand}, each one stopped at the gateway."
+      "text": "The OWASP Top 10 risks for LLM applications (2026), each one stopped at the gateway."
     },
     {
       "id": "owasp-agentic",
       "title": "OWASP Top 10 for Agentic Applications",
       "icon": "alert",
-      "text": "The risks of the OWASP Top 10 for agentic applications (2026), as they would hit {brand}'s agent, each one stopped at the gateway."
+      "text": "The OWASP Top 10 risks for AI agents (2026), each one stopped at the gateway."
     },
     {
       "id": "compliance-eu-ai-act",
       "title": "Compliance (EU AI Act)",
       "icon": "scale",
-      "text": "What the EU AI Act asks of {brand}'s assistant: say it is an AI (Art. 50); personal data falls under the GDPR. Record-keeping (Art. 12) and robustness (Art. 15) bind high-risk systems only, which a customer assistant is not: they show here as good practice.",
+      "text": "For {brand}'s assistant, the EU AI Act asks one thing: say it is an AI. The articles marked high-risk only apply to uses such as credit or hiring: they show here as good practice. Personal data falls under the GDPR.",
       "order": [
         "prompt-injection",
         "prompt-decoration",
@@ -67,7 +67,7 @@
       "id": "baseline",
       "title": "Baseline",
       "icon": "chat",
-      "text": "The starting point, with no policy under test, to compare against."
+      "text": "The starting point, with no policy, to compare against."
     }
   ],
   "showcases": [
