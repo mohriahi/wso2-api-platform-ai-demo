@@ -1120,6 +1120,7 @@ class Handler(BaseHTTPRequestHandler):
                 "brand": brand(),
                 "intro": assistant["intro"],
                 "placeholder": assistant["placeholder"],
+                "theme": vertical().get("theme") or {},
                 "launcher": launcher_links()})
         if path == "/api/mcp/tools":
             return self._mcp_tools((query.get("showcase") or [""])[0])

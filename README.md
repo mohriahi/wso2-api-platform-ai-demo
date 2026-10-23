@@ -3,8 +3,10 @@
 A self-contained, local demo of the WSO2 AI Platform's gateway: LLM
 showcases, each driving a real policy (routing, caching, guardrails, spend
 limits, failover...) against Anthropic, Mistral and Gemini, and MCP showcases
-where an agent uses tools through the gateway. Everything runs on
-your machine with Docker Compose: nothing to deploy, nothing shared.
+where an agent uses tools through the gateway. The same demo plays a mobile
+operator (Acme Mobile) or a bank (Acme Bank), one setting in `demo.env`.
+Everything runs on your machine with Docker Compose: nothing to deploy,
+nothing shared.
 
 ## Overview
 
@@ -37,6 +39,8 @@ wso2-api-platform-ai-demo/
 ├── ai-gateway/       WSO2 AI Gateway: policies, custom image, compose stack
 ├── ai-workspace/     AI Workspace: AI control plane
 ├── mcp-servers/      MCP servers behind the MCP showcases, own compose stack
+├── a2a/              the agents behind the A2A showcases, and their gateway
+├── verticals/        each business the demo can play: brand, catalogue, wording
 ├── scripts/          setup, run, stop, logs, certificate generation
 ├── secrets/          API keys and credentials (only the examples are in git)
 ├── .docs/            architecture diagram and other reference docs
@@ -230,7 +234,7 @@ the Analytics view:
 ## Configuration
 
 Nothing to configure for a first run apart from one API key. Everything else
-is optional: more cards (Azure, AWS, Jev, sign-in for the MCP cards),
+is optional: the business the demo plays (Acme Mobile or Acme Bank), more cards (Azure, AWS, Jev, sign-in for the MCP cards),
 analytics, other models, ports already in use, or an AI Workspace that already
 runs elsewhere. See [Configuring the demo](.docs/configuration.md).
 

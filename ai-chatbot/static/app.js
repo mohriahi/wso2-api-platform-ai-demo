@@ -29,6 +29,10 @@ fetch('/api/config')
     }
     if (c.intro) setIntro(c.intro);
     if (c.placeholder) input.placeholder = c.placeholder;
+    /* The business's own colours, over the default theme (styles.css). */
+    for (const [name, value] of Object.entries(c.theme || {})) {
+      document.documentElement.style.setProperty('--' + name, value);
+    }
     renderLauncher(c.launcher);
   })
   .catch(() => { /* cosmetic only */ });
