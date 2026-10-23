@@ -1,21 +1,15 @@
 #!/usr/bin/env python3
-"""The business's MCP servers: the backends the MCP showcases put behind the
-gateway. What they offer comes with the business the demo is set for
-(verticals/<VERTICAL>/vertical.json, "mcp"): its own server (TOOLSET=core),
-with a catalogue, one signed-in demo customer and four tools, or a partner's
-(TOOLSET=partner). Two attacks hide in the partner's: an instruction to the
-agent in a tool description (the Poisoned tool description card), and another
-in the terms one tool returns (the Tool result screening card).
+"""The MCP servers the MCP cards put behind the gateway. Their tools and data
+come with the business the demo plays (the "mcp" part of its vertical.json):
 
-What each tool does is one of a few kinds: list the catalogue, read the
-account, change one field of it, order something to an address, or look up
-an item's terms.
+- its own server (TOOLSET=core): the products, one signed-in customer, and
+  tools to read the account, change it and order a replacement;
+- a partner's server (TOOLSET=partner), with two hidden attacks: an
+  instruction in a tool description (the Poisoned tool description card) and
+  another in the terms a tool returns (the Tool result screening card).
 
-Speaks MCP's Streamable HTTP transport in its simplest form: JSON-RPC over
-POST /mcp, one JSON reply per request, no server-sent events. initialize
-opens a session (the Mcp-Session-Id header) that every later request names.
-Standard library only, so the stock python image runs it as-is (see
-mcp-servers/docker-compose.yaml).
+It speaks MCP in its simplest form, with the Python standard library only, so
+the stock Python image runs it as is.
 """
 import json
 import os
@@ -25,8 +19,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
 def load():
-    """This server's part of the business: its "mcp" entry, {v:path} filled."""
-    path = os.path.join(os.environ.get("VERTICALS", "/verticals"), os.environ.get("VERTICAL", "mobile"),
+    """This server's part of the business, read once at start."""
+    path = os.path.join(os.environ.get("VERTICALS", "/verticals"), os.environ.get("VERTICAL", "telco"),
                         "vertical.json")
     with open(path) as handle:
         business = json.load(handle)
@@ -51,9 +45,8 @@ SERVER = load()
 KEY, ITEMS = SERVER["key"], SERVER["items"]
 TOOLS = {tool["name"]: tool for tool in SERVER["tools"].values()}
 
-# The signed-in customer's account as each MCP session starts. A change tool
-# changes it in that session only, so a client that opens a new session starts
-# from the same account again, whatever another session changed.
+# Each MCP session starts from the same account, so a change made in one
+# conversation never shows in another.
 SESSIONS = {}  # Mcp-Session-Id -> the account in that session
 MAX_SESSIONS = 1000
 

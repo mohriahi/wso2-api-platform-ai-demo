@@ -9,7 +9,7 @@
 #   3. Start AI Workspace (the control plane).
 #   4. Start the AI Gateway (the data plane).
 #   5. Start the chatbot.
-#   6. When DEMO_VERTICAL changed, set the gateway up for the new business.
+#   6. Set the gateway up again if the business (DEMO_VERTICAL) changed.
 #
 # Needs api-platform.env in ai-workspace/ and ai-gateway/ (reset-and-setup.sh
 # creates them from their .example) and ai-chatbot/config.env.
@@ -48,8 +48,8 @@ docker network inspect "$DEMO_NAME-mcp" >/dev/null 2>&1 || docker network create
 # (A2A_ENABLED in demo.env).
 if [[ "${A2A_ENABLED:-false}" == true ]]; then
   "$ROOT/scripts/a2a-compose.sh" up -d --build --remove-orphans >"$LOGS/a2a.log" 2>&1
-  # The agents read the business's replies when they start: recreated on
-  # every run, like the MCP servers, so an edit to verticals/ is picked up.
+  # The agents are restarted on every run too, so they speak for the
+  # current business.
   "$ROOT/scripts/a2a-compose.sh" up -d --force-recreate --no-deps acme-agent partner-agent >>"$LOGS/a2a.log" 2>&1
 else
   "$ROOT/scripts/a2a-compose.sh" down >"$LOGS/a2a.log" 2>&1
@@ -71,11 +71,11 @@ echo "### 5/6 ai-chatbot"
 (cd "$ROOT/ai-chatbot" && nohup "$PYTHON" server.py >"$LOGS/ai-chatbot.log" 2>&1 &)
 
 # ==== Step 6/6: the business ==================================================
-# Every card's wording, the policies' values and the MCP and A2A backends come
-# with the business (DEMO_VERTICAL, verticals/). When it is not the one the
-# gateway was last set up for, the provisioning runs again (a few minutes).
-echo "### 6/6 business: ${DEMO_VERTICAL:-mobile}"
-if [[ "$(cat "$ROOT/verticals/.provisioned" 2>/dev/null)" != "${DEMO_VERTICAL:-mobile}" ]]; then
+# The cards, the gateway's rules and the MCP and A2A backends depend on the
+# business the demo plays (DEMO_VERTICAL). After a change, the gateway is set up
+# again for it: a few minutes, once.
+echo "### 6/6 business: ${DEMO_VERTICAL:-telco}"
+if [[ "$(cat "$ROOT/verticals/.provisioned" 2>/dev/null)" != "${DEMO_VERTICAL:-telco}" ]]; then
   echo "  the gateway is not set up for it yet: provisioning (log: $LOGS/provisioning.log)"
   "$PYTHON" "$ROOT/scripts/python/provision_showcases.py" >"$LOGS/provisioning.log" 2>&1
 fi

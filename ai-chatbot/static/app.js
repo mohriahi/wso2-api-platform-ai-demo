@@ -29,7 +29,7 @@ fetch('/api/config')
     }
     if (c.intro) setIntro(c.intro);
     if (c.placeholder) input.placeholder = c.placeholder;
-    /* The business's own colours, over the default theme (styles.css). */
+    /* The business's own colours, if it has any. */
     for (const [name, value] of Object.entries(c.theme || {})) {
       document.documentElement.style.setProperty('--' + name, value);
     }

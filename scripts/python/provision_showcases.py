@@ -232,12 +232,9 @@ def lane_templates(provider: dict) -> dict:
                                       r"\b(?:unrestricted|unfiltered|uncensored|jailbroken|dan|developer\s+mode)\b"
                                       r"|\b(?:reveal|print|show|repeat|output|tell\s+me)\b.{0,30}\bsystem\s+prompt\b")}}},
                 # Second line of defence: catches by meaning what the pattern
-                # above cannot, rewordings and other languages included. Runs
-                # after the regex, so the obvious attempts cost no embedding call.
-                # Its threshold comes with the business (verticals/). Acme
-                # Mobile's 0.80, measured with mistral-embed: reworded attacks
-                # score 0.81-0.89, the closest legitimate question 0.77
-                # ("Please disregard my previous message, I meant the Plus plan").
+                # above cannot, rewordings and other languages included. Its
+                # phrases and threshold come with the business (verticals/),
+                # measured with scripts/python/calibrate.py.
                 {"name": "semantic-prompt-guard", "version": "v1", "params": {
                     "jsonPath": provider["contentPath"],
                     "denySimilarityThreshold": policy("promptGuard")["threshold"],
@@ -345,18 +342,10 @@ def lane_templates(provider: dict) -> dict:
         },
         "semantic-caching": {
             "context_suffix": "cache", "displayName": "Semantic Caching", "wired": True,
-            # jsonPath is not optional in practice: without it semantic-cache
-            # embeds the WHOLE body (system prompt + plan catalogue + question),
-            # the shared catalogue dominates, and "Everyday plan price" was
-            # served the cached answer for "Max plan price" (the schema shows
-            # a $.messages[-1].content default, but the code falls back to the
-            # body). similarityThreshold is transformed in the source --
-            # effective = 0.6 + 0.4 x configured. The value comes with the
-            # business (verticals/): Acme Mobile's 0.915 is a 0.966 cosine
-            # cut-off: it catches "What's a PAC code?" (0.979) and "What does
-            # PAC code mean?" (0.969) and rejects every measured wrong-answer
-            # pair, the closest being 10 GB vs 100 GB at 0.964. See
-            # showcases.json's semantic-caching notes before changing it.
+            # Only the newest question is compared (jsonPath): compared with the
+            # whole request, the shared catalogue made every question look
+            # alike. The threshold comes with the business (verticals/),
+            # measured with scripts/python/calibrate.py.
             "globalPolicies": [{"name": "semantic-cache", "version": "v1",
                                  "params": {"similarityThreshold": policy("semanticCache")["threshold"],
                                             "jsonPath": provider["contentPath"]}}],
@@ -370,26 +359,13 @@ def lane_templates(provider: dict) -> dict:
             # local echo-server upstream: request WAS masked reaching upstream,
             # but the client-facing response had the real email put back).
             #
-            # jsonPath "$": the WHOLE request body, not just the newest message.
-            # ai-chatbot replays the conversation every turn, so with
-            # $.messages[-1].content an email typed one turn earlier reached the
-            # model in clear (verified: it repeated it back). Run over a real
-            # body with no personal data in it, none of the patterns below
-            # touch the system prompt, the catalogue or the JSON itself.
+            # The whole conversation is masked, not only the newest message:
+            # the app sends it all again on every turn.
             #
-            # customPIIEntities come with the business (verticals/). For Acme
-            # Mobile: the built-in "phone" pattern is US-only
-            # (+1 / 3-3-4 digits) -- +44 7700 900123, 07700 900123 and
-            # +33 6 12 34 56 78 all passed through unmasked. PHONE_INTL covers
-            # any "+<country code>" number, PHONE_UK national 0-prefixed ones
-            # (mobiles and 020/0161/01632-style landlines).
-            #
-            # Built-in "ssn" is OFF, replaced by SSN_US: the policy applies its
-            # patterns in Go map order -- random per request -- and the built-in
-            # SSN regex (dashes optional) also matches "700 900123", so whenever
-            # it ran first "+44 7700 900123" came back as "+44 7*****". SSN_US
-            # requires the dashed 123-45-6789 form; every ordering of these five
-            # patterns was checked to mask each sample number completely.
+            # The business adds its own patterns (verticals/): phone numbers in
+            # the formats the built-in one misses, and for Acme Bank IBANs and
+            # card numbers. The built-in "ssn" pattern stays off: it also
+            # caught pieces of phone numbers.
             "globalPolicies": [{"name": "pii-masking-regex", "version": "v1", "params": {
                 "email": True, "phone": True, "ssn": False, "redactPII": True,
                 "jsonPath": "$",
@@ -440,12 +416,9 @@ def lane_templates(provider: dict) -> dict:
             # path/header/query rewriting implemented at all -- unlike the
             # other two routers below, which do support this.
             "supportedRequestModelLocations": {"payload"},
-            # The utterances and the threshold come with the business
-            # (verticals/). Acme Mobile's 0.75, not the schema default 0.90:
-            # 0.90 measured far too strict for this catalogue's phrasing. The
-            # utterances cover the "deep" questions (comparing plans, roaming,
-            # contract lengths) rather than the literal demo question, so
-            # routing generalizes instead of overfitting one prompt.
+            # The example questions that need the large model, and the
+            # threshold, come with the business (verticals/). They are worded
+            # broadly, so routing works beyond the demo's own question.
             "operationPolicies": [{"name": "semantic-model-routing", "version": "v0", "paths": [{
                 "path": path, "methods": ["POST"], "params": {
                     "contentPath": provider["contentPath"],
@@ -1494,8 +1467,8 @@ def main():
                       "the keys issued so far")
             restart_ai_chatbot()
 
-    # A full run sets the gateway up for the business; run-local.sh runs one
-    # again when DEMO_VERTICAL no longer matches.
+    # Remembers which business the gateway is set up for: run-local.sh sets it
+    # up again when DEMO_VERTICAL changes.
     if not [a for a in args if not a.startswith("--")]:
         PROVISIONED.write_text(VERTICAL_ID + "\n")
     print("\ndone." + (" ai-chatbot restarted with the new keys." if state["keys_changed"] else ""))

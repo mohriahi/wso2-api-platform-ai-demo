@@ -1,28 +1,25 @@
-"""The demo's business: Acme Mobile, Acme Bank... (DEMO_VERTICAL in demo.env).
-
-Each one is a folder under verticals/:
-  vertical.json  its brand, the assistant's persona, its customer, and the
-                 wording the gateway's policies need (allowed topics, routing
-                 rules, personal data patterns, tools, thresholds);
-  catalogue.md   the products the assistant quotes;
-  cards.json     optional: the cards and rows it words its own way, by id.
-showcases.json refers to its values as {v:path}. The provisioning and the
-chatbot both read it here.
+"""The business the demo plays (DEMO_VERTICAL in demo.env): telco for Acme
+Mobile, bank for Acme Bank. Each one is a folder of verticals/:
+  vertical.json  its brand, assistant, customer, tools and agents, and the
+                 words the gateway's policies use;
+  catalogue.md   the products the assistant talks about;
+  cards.json     how its cards are worded, when they differ from the default.
+The provisioning and the chatbot both read it from here.
 """
 import json
 import re
 
 from target import ROOT, setting
 
-VERTICAL_ID = setting("DEMO_VERTICAL", "mobile")
+VERTICAL_ID = setting("DEMO_VERTICAL", "telco")
 FOLDER = ROOT / "verticals" / VERTICAL_ID
-# The business the gateway was last fully set up for (provision_showcases.py).
+# The business the gateway was last set up for, so run-local.sh knows when to
+# set it up again.
 PROVISIONED = ROOT / "verticals" / ".provisioned"
 
 
 def vertical() -> dict:
-    """verticals/<DEMO_VERTICAL>/vertical.json, read on each call so an edit
-    applies at once."""
+    """The business's vertical.json, read each time so an edit shows at once."""
     path = FOLDER / "vertical.json"
     if not path.exists():
         raise SystemExit(f"DEMO_VERTICAL={VERTICAL_ID}: no {path.relative_to(ROOT)}")
@@ -30,12 +27,12 @@ def vertical() -> dict:
 
 
 def policy(name: str):
-    """One policy's domain values, from the vertical's "policies"."""
+    """The business's own words for one policy."""
     return vertical()["policies"][name]
 
 
 def catalogue_path() -> str:
-    """The catalogue appended to the assistant's prompt, "" if none."""
+    """Where the business's catalogue is, "" if it has none."""
     name = vertical()["assistant"].get("catalogue") or ""
     return str(FOLDER / name) if name else ""
 
@@ -51,14 +48,12 @@ def _lookup(data: dict, path: str):
 
 
 def _text(value) -> str:
-    """A value written into a text: as is, or as compact JSON (a list of
-    allowed values inside a policy's JSON schema, for instance)."""
+    """A value written inside a text (a list goes in as JSON)."""
     return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False, separators=(",", ":"))
 
 
 def _fill(value, data: dict):
-    """{v:a.b} in a card replaced with the business's value at a.b: any value
-    when it is the whole string (a list of tools, a number), else its text."""
+    """Each {v:a.b} in a card becomes the business's value at a.b."""
     if isinstance(value, dict):
         return {k: _fill(v, data) for k, v in value.items()}
     if isinstance(value, list):
@@ -72,16 +67,15 @@ def _fill(value, data: dict):
 
 
 def _merge(base, extra):
-    """extra laid over base: objects merge key by key, anything else replaces."""
+    """extra over base: objects are combined, anything else is replaced."""
     if isinstance(base, dict) and isinstance(extra, dict):
         return {**base, **{k: _merge(base.get(k), v) for k, v in extra.items()}}
     return extra
 
 
 def for_business(registry: dict) -> dict:
-    """showcases.json ({"groups", "showcases"}) set for the business: its
-    cards.json laid over the cards and groups it rewords, by id, then every
-    {v:...} filled in from its vertical.json."""
+    """The cards of showcases.json, worded for the business: its cards.json on
+    top, and its values in place of each {v:...}."""
     path = FOLDER / "cards.json"
     extra = json.loads(path.read_text()) if path.exists() else {}
     for kind in ("groups", "showcases"):

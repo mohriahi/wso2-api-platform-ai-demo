@@ -1,18 +1,14 @@
 #!/usr/bin/env python3
-"""Checks the business the demo is set for (DEMO_VERTICAL) against the gateway's
-semantic policies and its budgets, and proposes values for vertical.json.
+"""Checks a business's settings before a demo (DEMO_VERTICAL in demo.env).
 
-1. Thresholds. Each test sentence of the business's "calibration" block is
-   scored with the gateway's own embeddings model (EMBEDDING_* in demo.env),
-   the way the policy scores it, and the script proposes the threshold that
-   best separates what must pass from what must not: semantic cache, topic
-   guard, prompt guard, semantic routing.
-2. Budgets. With the business's prompt and catalogue, it estimates what one
-   answer costs on each provider (prices from the gateway's model_prices.json)
-   and how many answers each budget and quota allows, so a card still runs out
-   at the right moment of the demo.
+1. Thresholds: it scores the test sentences of the business's "calibration"
+   block with the gateway's own embeddings model, and proposes, for the
+   semantic cache, the topic guard, the prompt guard and semantic routing, the
+   value that best separates what must pass from what must not.
+2. Budgets: it says how many answers each budget and quota lasts with the
+   business's catalogue, so a card still runs out at the right moment.
 
-Nothing is changed: copy the values you want into verticals/<id>/vertical.json.
+It changes nothing: copy the values you want into the business's vertical.json.
 
 Usage: python3 scripts/python/calibrate.py
 """
@@ -24,16 +20,16 @@ from platform_api import PROVIDERS, budget_for, provider_key, read_env_file, req
 from target import ROOT, setting
 from vertical import VERTICAL_ID, catalogue_path, policy, vertical
 
-# The semantic cache compares 0.6 + 0.4 x its threshold with the cosine.
+# The semantic cache's threshold is not a plain similarity: 0.6 + 0.4 x threshold is.
 CACHE_FLOOR, CACHE_SPAN = 0.6, 0.4
 # What a typical demo answer writes, in tokens.
 ANSWER_TOKENS = 350
 
 
 def embed(texts: list) -> list:
-    """Vectors for the texts, from the same model the gateway embeds with."""
+    """The texts as the gateway's embeddings model sees them."""
     keys = read_env_file(ROOT / "secrets" / "api-keys.env")
-    # Left blank, the embeddings key is Mistral's (see secrets/api-keys.env.example).
+    # Without its own key, the embeddings model uses Mistral's.
     key = keys.get("EMBEDDINGS_PROVIDER_API_KEY") or provider_key(next(p for p in PROVIDERS if p["id"] == "mistral"))
     status, body = request("POST", setting("EMBEDDING_ENDPOINT"), {"model": setting("EMBEDDING_MODEL"), "input": texts},
                            {"Authorization": "Bearer " + key})
@@ -47,15 +43,14 @@ def cosine(a: list, b: list) -> float:
 
 
 def best_match(texts: list, references: list) -> list:
-    """Each text's highest similarity to any of the references."""
+    """How close each text comes to the nearest reference phrase."""
     vectors = embed(texts + references)
     mine, theirs = vectors[:len(texts)], vectors[len(texts):]
     return [max(cosine(v, r) for r in theirs) for v in mine]
 
 
 def propose(name: str, current: float, low: list, high: list, low_label: str, high_label: str, cache=False):
-    """Prints both groups' scores and the threshold halfway between them. The
-    cache's threshold stands for the cosine 0.6 + 0.4 x threshold."""
+    """Prints the scores of both groups and the threshold halfway between them."""
     top, bottom = max(low), min(high)
     print(f"\n{name}  (now {current})")
     print(f"  {high_label:<24} {min(high):.3f} .. {max(high):.3f}")
@@ -113,7 +108,7 @@ def budgets():
     if path:
         with open(path) as handle:
             prompt += handle.read()
-    # About four characters a token in English: an estimate, enough to size a budget.
+    # About four characters a token: close enough to size a budget.
     prompt_tokens = len(prompt) // 4
     table = prices()
     quota = showcase("token-quota").get("quota") or {}

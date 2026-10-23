@@ -82,9 +82,9 @@ wso2-api-platform-ai-demo/
 | Prompt compression | The gateway compresses the system prompt, and long messages, before the model reads them: about a fifth fewer input tokens, same answers |
 
 On the **MCP Gateway** page, the assistant becomes an agent. Its tools come
-from a small MCP server (`mcp-servers/`) whose tools come with the business
-the demo is set for. For Acme Mobile: list the plans, read the customer's
-account, change the plan. Its model goes through the
+from a small MCP server (`mcp-servers/`): for Acme Mobile, list the plans,
+read the customer's account, change the plan (for Acme Bank, the same with
+account packages). Its model goes through the
 LLM Gateway and its tool calls through MCP proxies; each call shows in the
 reply, with what the gateway did.
 
@@ -113,7 +113,7 @@ Server or any other): see the [IDP Setup](.docs/mcp-identity-provider.md).
 
 With `A2A_ENABLED=true` in `demo.env`, a third page appears. There, the
 assistant does not answer by itself: it passes the customer's question to
-another agent (`a2a/agent/`, what it says comes with the business), through the gateway.
+another agent (`a2a/agent/`), through the gateway.
 
 The gateway sits between the two agents:
 
@@ -200,6 +200,11 @@ If another program already uses the gateway's ports (8080, 8443...), see
 ./scripts/clear-cache.sh    # empty the semantic cache (also a button on the Semantic caching card)
 ```
 
+To switch the business the demo plays, set `DEMO_VERTICAL` in `demo.env`
+(`telco` for Acme Mobile, `bank` for Acme Bank), then run
+`./scripts/run-local.sh`. It sets the gateway up for the new business: a few
+minutes, once per change.
+
 Only reach for `reset-and-setup.sh` again if you actually want a clean
 slate: it wipes every database (providers, gateway registrations, cached
 responses) and provisions from scratch.
@@ -234,9 +239,10 @@ the Analytics view:
 ## Configuration
 
 Nothing to configure for a first run apart from one API key. Everything else
-is optional: the business the demo plays (Acme Mobile or Acme Bank), more cards (Azure, AWS, Jev, sign-in for the MCP cards),
-analytics, other models, ports already in use, or an AI Workspace that already
-runs elsewhere. See [Configuring the demo](.docs/configuration.md).
+is optional: the business the demo plays (Acme Mobile or Acme Bank), more
+cards (Azure, AWS, Jev, sign-in for the MCP cards), analytics, other models,
+ports already in use, or an AI Workspace that already runs elsewhere. See
+[Configuring the demo](.docs/configuration.md).
 
 The demo's options live in `demo.env`, created on the first run. Git ignores
 it, so what you change there stays on your machine.

@@ -157,28 +157,25 @@ All in `demo.env`. The defaults work: change a value only for the cases below.
 The same cards play a mobile operator or a bank:
 
 ```
-DEMO_VERTICAL=mobile   # Acme Mobile
-DEMO_VERTICAL=bank     # Acme Bank
+DEMO_VERTICAL=telco   # Acme Mobile
+DEMO_VERTICAL=bank    # Acme Bank
 ```
 
-Then run `./scripts/run-local.sh`. It sees the change and sets the gateway up
-again for the new business: a few minutes, once.
+Then run `./scripts/run-local.sh`: it sees the change and sets the gateway up
+for the new business. That takes a few minutes, once per change.
 
 Each business is a folder of `verticals/`:
 
-- `vertical.json`: the brand and its colours, the assistant's persona, the
-  customer, the tools of its MCP servers and the replies of its agents, and
-  the words the gateway's policies work with (allowed topics, routing rules,
-  personal data patterns, thresholds);
-- `catalogue.md`: the products the assistant quotes;
-- `cards.json`: how its cards are worded (questions, expected answers),
-  laid over `ai-chatbot/showcases.json` card by card.
+- `vertical.json`: its brand and colours, its assistant, its customer, its
+  MCP tools and agents, and the words the gateway's rules work with (allowed
+  topics, routing examples, personal data patterns, thresholds);
+- `catalogue.md`: the products the assistant talks about;
+- `cards.json`: the questions and expected answers of its cards, where they
+  differ from `ai-chatbot/showcases.json`.
 
-To add a business, copy a folder, rewrite it, and check its thresholds and
-budgets with `python3 scripts/python/calibrate.py` (with its `DEMO_VERTICAL`):
-it measures the test sentences of `vertical.json` with the gateway's own
-embeddings model, proposes the thresholds, and says how many answers each
-budget lasts with that catalogue.
+To add a business, copy a folder and rewrite it. Then check it with
+`python3 scripts/python/calibrate.py`: it proposes the thresholds that suit
+its wording, and says how many answers each budget lasts with its catalogue.
 
 ### The gateway's ports are already in use
 

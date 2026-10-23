@@ -1,12 +1,10 @@
-"""The business's A2A agents, which the A2A showcases put behind the gateway.
-What they say comes with the business the demo is set for
-(verticals/<VERTICAL>/vertical.json, "a2a"): its own agent (ROLE=agent), or a
-partner's (ROLE=partner), whose own card hides an instruction for the agents
-that read it. Given a destination, each answers from a fixed table: no model
-behind it, so every answer is the same on stage.
+"""The agents the A2A cards put behind the gateway. What they say comes with
+the business the demo plays (the "a2a" part of its vertical.json): its own
+agent (ROLE=agent), or a partner's (ROLE=partner), whose own card hides an
+instruction for the agents that read it.
 
-Built on the official A2A Python SDK, which serves the Agent Card and both
-A2A bindings (JSON-RPC at /, HTTP+JSON under /) from one handler.
+Given a destination, each answers from a fixed table, with no model behind
+it, so every answer is the same on stage. Built on the official A2A SDK.
 """
 import json
 import os
@@ -24,7 +22,8 @@ from a2a.types import AgentCapabilities, AgentCard, AgentInterface, AgentSkill
 
 
 def load():
-    path = os.path.join(os.environ.get("VERTICALS", "/verticals"), os.environ.get("VERTICAL", "mobile"),
+    """This agent's part of the business, read once at start."""
+    path = os.path.join(os.environ.get("VERTICALS", "/verticals"), os.environ.get("VERTICAL", "telco"),
                         "vertical.json")
     with open(path) as handle:
         a2a = json.load(handle)["a2a"]
@@ -35,7 +34,7 @@ PLACES, AGENT = load()
 
 
 def answer(text):
-    """The reply for the first place named in the text, by the group it is in."""
+    """The reply for the first place named in the message."""
     replies = AGENT["replies"]
     for group, places in PLACES.items():
         for place in places:

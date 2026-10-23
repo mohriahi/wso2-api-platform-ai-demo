@@ -112,7 +112,7 @@ def budget_for(provider: dict) -> float:
 
 
 def showcases() -> list:
-    """The cards of ai-chatbot/showcases.json, set for the business (verticals/)."""
+    """The cards of ai-chatbot/showcases.json, worded for the business."""
     return for_business(json.loads((ROOT / "ai-chatbot" / "showcases.json").read_text()))["showcases"]
 
 

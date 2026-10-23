@@ -91,8 +91,8 @@ DEFAULT_PROVIDER_ID = next(iter(PROVIDERS))  # first entry in providers.json
 
 
 def _model_prices():
-    """The per-token price of each model the providers use, from the file the
-    gateway charges with (llm-cost): what the cost meter multiplies tokens by."""
+    """What each model costs per token, from the file the gateway charges
+    with: the cost meter uses the same prices."""
     path = os.path.join(os.path.dirname(HERE), "ai-gateway", "configs", "llm-pricing", "model_prices.json")
     with open(path) as handle:
         table = json.load(handle)
@@ -193,7 +193,7 @@ MAX_TOKENS_CEILING = 8192
 MODEL_OVERRIDE = None
 
 # The brand, the assistant's persona and its catalogue come with the business
-# the demo is set for (DEMO_VERTICAL, verticals/).
+# the demo plays (DEMO_VERTICAL).
 DEFAULTS = {
     # A reasoning model can spend output tokens on internal reasoning before it
     # writes a word. A small budget can be consumed entirely by that, returning
@@ -312,8 +312,8 @@ def brand():
 
 
 def _brand(text):
-    """A prompt with the business filled in: {persona} is its assistant's usual
-    prompt, {brand} its name, {business} what it does."""
+    """A prompt with the business filled in: {brand} is its name, {business}
+    what it does, {persona} its assistant's usual prompt."""
     v = vertical()
     return (text.replace("{persona}", v["assistant"]["systemPrompt"])
             .replace("{brand}", v["brand"]).replace("{business}", v["business"]))
@@ -411,8 +411,8 @@ def load_showcases():
     try:
         with open(SHOWCASES_FILE) as handle:
             raw = json.loads(handle.read())
-        # The business's own wording first, then the demo.env settings
-        # ({PEAK_HOURS}...), so its cards can name them too.
+        # The business's wording first, then the demo.env settings such as
+        # {PEAK_HOURS}, which its cards may use too.
         if isinstance(raw, dict):
             raw = for_business(raw)
         raw = json.loads(re.sub(r"\{([A-Z][A-Z0-9_]*)\}", _demo_setting, json.dumps(raw, ensure_ascii=False)))
@@ -735,7 +735,7 @@ def resolve_showcase(showcase_id, provider_id=DEFAULT_PROVIDER_ID):
     # A routed or MCP card (see resolve_gateway) speaks its own provider's
     # wire format and default model, and its env vars carry the default
     # provider's (unsuffixed) names, since it belongs to no single provider.
-    # So does an A2A card: its agent's key is the same whatever the provider.
+    # So does an A2A card: its agent has one key, whatever the provider.
     mcp = entry.get("mcp")
     own_provider = (entry.get("route") or {}).get("defaultProvider") or (mcp or {}).get("provider")
     conf_provider = DEFAULT_PROVIDER_ID if own_provider or entry.get("a2a") else provider_id

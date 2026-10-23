@@ -31,7 +31,7 @@ import { configureSpend } from './spend.js';
  * the first message. What the capability is, and whether it can run here, is
  * the rail's job and the notice strip's. */
 const INTRO_HEADING = 'Hi, how can I help?';
-/* The welcome line comes with the business the demo is set for (/api/config). */
+/* The chat's welcome line comes with the business the demo plays. */
 let introText = '';
 export function setIntro(text) {
   introText = text;

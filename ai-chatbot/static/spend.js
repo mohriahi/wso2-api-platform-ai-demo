@@ -14,11 +14,8 @@
  * carries -- the same file llm-cost charges the budget from. The budget
  * AMOUNT itself comes from providers.json's costBudget (via /api/providers,
  * screens.js's costBudgetFor() -- each provider calibrated to its own
- * pricing, see provision_showcases.py's budget_for()); showcases.json only
- * declares which ROLE is the deep/fallback model, and this module resolves
- * the active provider's own amount/model/fallbackModel and multiplies out
- * from there. The server adds the prices, read from that same
- * model_prices.json for every model in providers.json.
+ * pricing). The server sends the prices with the card, from that same
+ * file, so the meter and the gateway always agree.
  *
  * Two honesty rules follow, and the UI keeps both:
  *

@@ -6,20 +6,20 @@ for Asgardeo and WSO2 Identity Server, which share the same console.
 
 ## Set it up in Asgardeo or WSO2 Identity Server
 
-1. **MCP server** — *MCP Servers* → *New MCP Server*: an identifier such as
-   `https://acme/mcp`, scopes `account:read` and `account:write`. They are the
-   same whatever business the demo is set for (`DEMO_VERTICAL`).
-2. **Application** — *Applications* → *New Application* → *MCP Client
+1. **MCP server**: *MCP Servers* → *New MCP Server*, with an identifier such
+   as `https://acme/mcp` and the scopes `account:read` and `account:write`.
+   They are the same for every business the demo plays.
+2. **Application**: *Applications* → *New Application* → *MCP Client
    Application*:
    - redirect URL `http://localhost:8600/oauth/callback`;
    - *Protocol*: access token type JWT, access token attributes `username`
      and `email` (the name shown as "Signed in as ...");
    - *API Authorization*: authorize the MCP server with both scopes;
    - copy the **Client ID**.
-3. **Roles** — in the application's *Roles* tab: `acme-support` with
+3. **Roles**: in the application's *Roles* tab: `acme-support` with
    `account:read`, `acme-manager` with both scopes.
-4. **Users** — two users, one per role.
-5. **secrets/idp.env** — `cp secrets/idp.env.example secrets/idp.env`, then:
+4. **Users**: two users, one per role.
+5. **secrets/idp.env**: `cp secrets/idp.env.example secrets/idp.env`, then:
 
    ```
    IDP_ISSUER=<issuer>          # Asgardeo: https://api.asgardeo.io/t/<org>/oauth2/token
@@ -44,7 +44,7 @@ on the `mcp-idp` key manager in `ai-gateway/configs/config.toml`.
 ## Other providers
 
 Same steps. The scopes must reach the token per role (only one user gets
-`account:write`), in a `scope` claim — Microsoft Entra ID uses `scp`: add
+`account:write`), in a `scope` claim. Microsoft Entra ID uses `scp`: add
 `scopeClaim = "scp"` to the `mcp-idp` key manager.
 
 ## How Sign in works
@@ -55,10 +55,10 @@ The page does what any MCP client (Claude Code, for one) does with a 401:
    protected resource metadata: the identity provider and the scopes.
 2. Nothing logs in by itself: the client asks the user (Claude Code lists the
    server under `/mcp`; the page shows *Sign in*), then opens the provider's
-   login page — authorization code + PKCE, as `IDP_CLIENT_ID`.
+   login page (authorization code + PKCE), as `IDP_CLIENT_ID`.
 3. The token goes on that proxy's MCP calls only, never to the model.
-   `mcp-authz` then requires `account:write` for the tool that changes the
-   account (`change_plan` for Acme Mobile), else **403**.
+   `mcp-authz` then requires `account:write` to change the account (to
+   change the plan, for Acme Mobile), else **403**.
 
 An external client follows the 401's URL as-is: its host is `DEMO_HOSTNAME`
 (`demo.env`), `localhost` when blank.
