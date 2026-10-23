@@ -1,7 +1,7 @@
 """Acme Mobile's roaming agent: an A2A 1.0 agent the A2A showcases put behind
 the gateway. Given a destination, it answers with the roaming zone and what it
-costs, from the same catalogue as ai-chatbot/plans.md. No model behind it, so
-every answer is the same on stage.
+costs, from the same catalogue as verticals/mobile/catalogue.md. No model
+behind it, so every answer is the same on stage.
 
 With AGENT_PROFILE=globetrotter, the same code plays Globetrotter, a partner's
 travel agent whose own card hides an instruction for the agents that read it.

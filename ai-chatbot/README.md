@@ -46,7 +46,6 @@ under gateway-side routing it has no say in which model answers either.
 ```
 ai-chatbot/
 ├── server.py            stdlib HTTP server: serves static/, relays /api/chat
-├── plans.md             fictional product catalogue the assistant quotes from
 ├── showcases.json       the nine showcases: prose, demo steps, provider wiring
 ├── static/
 │   ├── index.html
@@ -139,8 +138,10 @@ Two things to get right:
 
 ## What the assistant knows
 
-`plans.md` is a fictional product catalogue — tariffs, add-ons, roaming zones,
-top-ups, switching, eSIM — appended to the system prompt at request time. It is
+The business the demo is set for (`DEMO_VERTICAL` in demo.env) brings a
+fictional product catalogue, `verticals/<id>/catalogue.md`. For Acme Mobile:
+tariffs, add-ons, roaming zones, top-ups, switching, eSIM. It is appended to
+the system prompt at request time. It is
 the assistant's only source of product facts, which is what lets it answer
 "what SIM-only plans do you offer?" with a real table instead of "I don't have
 the live plan list". Edit the file and the answers change; no code involved.
@@ -159,9 +160,10 @@ challenged.
 
 Account-specific questions — balance, this month's usage — are still answered
 with "I can't see your account", because the app has no billing system behind
-it. Give it one by extending `plans.md`, or leave it as is.
+it. Give it one by extending the catalogue, or leave it as is.
 
-Blank `PLANS_FILE` to restore the original deflecting behaviour.
+Remove `catalogue` from the business's `vertical.json` to restore the original
+deflecting behaviour.
 
 ## The showcases
 
@@ -650,7 +652,7 @@ Run against the live hosted gateway on 2026-08-31:
 | Budget readout | Fell $0.05 → $0.0478 → $0.0464 over two `claude-opus-4-6` replies |
 | Unpriced model | Two `claude-opus-5` replies left the budget still |
 | 429 rendering | Shows *Cost budget exhausted*, bar red, gateway body verbatim, question restored |
-| Rebrand | Wordmark, page title, placeholder and prompt all read `BRAND_NAME`; no residual brand in the served page |
+| Rebrand | Wordmark, page title, placeholder and prompt all come from the business's `vertical.json`; no residual brand in the served page |
 | Plan answers | Quotes the catalogue: full tariff table, correct price for "the 30GB plan", and a sensible recommendation for "12GB a month, travels to Spain" |
 | No invention | "A 250 GB plan for £3?" → says no, and cites the real cheapest and largest plans |
 | No disclosure | Refuses to reproduce the system prompt or mention the catalogue |
@@ -792,9 +794,9 @@ locked to the OpenAI Chat Completions dialect.
 
 - The palette is magenta `#DB00AF`, navy `#0D1167`, lavender `#E7EBFF`, mint
   `#1EE98A`, set in **Figtree**.
-- The product name is a single config value, `BRAND_NAME` (default
-  `Acme Mobile`). It drives the wordmark, the page title and the system prompt;
-  nothing else hard-codes a name. The system prompt also forbids the model from
+- The product name comes with the business: `brand` in
+  `verticals/<id>/vertical.json` (`Acme Mobile` for `mobile`). It drives the
+  wordmark, the page title and the system prompt. The system prompt also forbids the model from
   naming or comparing real-world operators, so no real telecom brand appears in
   answers either.
 - `TLS_VERIFY` defaults to `false`, from when the hosted host's certificate was

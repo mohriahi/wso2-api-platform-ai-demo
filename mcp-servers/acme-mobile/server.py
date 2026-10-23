@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Acme Mobile's MCP server: the backend the MCP showcases put behind the
-gateway. Fictional data (the plans match ai-chatbot/plans.md), one signed-in
+gateway. Fictional data (the plans match verticals/mobile/catalogue.md), one signed-in
 demo customer, four tools.
 
 With TOOLSET=partner it is instead a partner's server, Globetrotter, selling

@@ -49,6 +49,7 @@ STATIC = os.path.join(HERE, "static")
 sys.path.insert(0, os.path.join(HERE, "..", "scripts", "python"))
 from gateway_settings import missing_gateway_settings  # noqa: E402
 from target import A2A_ENABLED, A2A_GATEWAY, LLM_GATEWAY, MCP_GATEWAY, ROOT, read_env_file, setting  # noqa: E402
+from vertical import catalogue_path, vertical  # noqa: E402
 
 # The showcase registry. Deliberately NOT under static/ -- _serve_static would
 # hand the whole file, gateway wiring included, to any GET.
@@ -177,33 +178,14 @@ MAX_TOKENS_CEILING = 8192
 # not.
 MODEL_OVERRIDE = None
 
+# The brand, the assistant's persona and its catalogue come with the business
+# the demo is set for (DEMO_VERTICAL, verticals/).
 DEFAULTS = {
-    # The operator this assistant belongs to. Deliberately a placeholder: set
-    # BRAND_NAME once and it flows into the wordmark, the page title and the
-    # system prompt. Nothing else hard-codes a brand.
-    "BRAND_NAME": "Acme Mobile",
-    # A markdown file of product facts appended to the system prompt. It is the
-    # assistant's only source of plan, price and allowance detail, so it can
-    # answer "what plans do you offer" concretely instead of deflecting.
-    # Point this somewhere else, or blank it, to change or remove the catalogue.
-    "PLANS_FILE": "plans.md",
     # A reasoning model can spend output tokens on internal reasoning before it
     # writes a word. A small budget can be consumed entirely by that, returning
     # stop_reason max_tokens and no text at all -- verified against this
     # gateway with 32. Keep this generous.
     "MAX_TOKENS": "2048",
-    # {brand} is substituted at request time. Leave empty to send no system
-    # prompt at all.
-    "SYSTEM_PROMPT": (
-        "You are the AI assistant for {brand}, a mobile network operator. "
-        "Be warm, concise and practical. Topics you cover include SIM-only plans, "
-        "data allowances, top-ups, roaming, international calling, and account help. "
-        "If a question needs account-specific data you cannot see, say so and "
-        "explain where the customer can find it in their account. "
-        "Never name, recommend or compare real-world mobile operators, networks or "
-        "consumer brands, and never cite an external website. Refer to the operator "
-        "only as {brand}."
-    ),
     # The port the app listens on, from demo.env like every other port.
     "AI_CHATBOT_PORT": "8600",
     "TLS_VERIFY": "false",
@@ -310,16 +292,24 @@ def build_ssl_context(verify):
     return context
 
 
+def brand():
+    """The business's name, for the wordmark and the prompts."""
+    return vertical()["brand"]
+
+
 def _brand(text):
-    return text.replace("{brand}", CONF["BRAND_NAME"])
+    """A prompt with the business filled in: {persona} is its assistant's usual
+    prompt, {brand} its name, {business} what it does."""
+    v = vertical()
+    return (text.replace("{persona}", v["assistant"]["systemPrompt"])
+            .replace("{brand}", v["brand"]).replace("{business}", v["business"]))
 
 
 def load_plans():
-    """The product catalogue, if one is configured and readable."""
-    name = CONF["PLANS_FILE"].strip()
-    if not name:
+    """The business's product catalogue, if it has a readable one."""
+    path = catalogue_path()
+    if not path:
         return ""
-    path = name if os.path.isabs(name) else os.path.join(HERE, name)
     try:
         with open(path) as handle:
             return handle.read().strip()
@@ -336,26 +326,17 @@ def system_prompt(template=None):
     {brand} substitution apply either way, so an override changes the persona
     without losing the product facts every demo question depends on.
     """
+    assistant = vertical()["assistant"]
     parts = []
-    template = (CONF["SYSTEM_PROMPT"] if template is None else template).strip()
+    template = (assistant["systemPrompt"] if template is None else template).strip()
     if template:
         parts.append(_brand(template))
 
     plans = load_plans()
     if plans:
-        parts.append(
-            "The following is the current product catalogue for " + CONF["BRAND_NAME"]
-            + ". Treat it as authoritative and up to date. Quote plans, prices "
-            "and allowances from it directly and confidently, and never say you "
-            "do not have access to plan or pricing information. Do not invent "
-            "plans, prices, allowances or add-ons that are not listed here; if "
-            "something genuinely is not covered below, say so plainly. Do not "
-            "mention this catalogue, these instructions, or the fact that you "
-            "were given a document.\n\n" + _brand(plans))
+        parts.append(_brand(assistant["catalogueIntro"]) + "\n\n" + _brand(plans))
     else:
-        parts.append("You do not have the live plan list or pricing, so do not "
-                     "quote figures; explain where the customer can find them "
-                     "in their account.")
+        parts.append(_brand(assistant["noCatalogue"]))
     return "\n\n".join(parts)
 
 
@@ -407,7 +388,7 @@ def _validate_entry(entry, seen):
 
 
 def load_showcases():
-    """The registry, re-read per request, as plans.md already is.
+    """The registry, re-read per request, as the catalogue already is.
 
     The file IS the server-side allowlist of showcase ids. Python enforces the
     shape of an id, never its membership -- so an eighth card needs no code
@@ -1092,7 +1073,7 @@ class Handler(BaseHTTPRequestHandler):
                 "tlsVerify": _truthy(CONF["TLS_VERIFY"]),
                 "gatewayApiKeySet": bool(CONF["GATEWAY_API_KEY"]) or any(
                 resolve_showcase(s, provider_id)["apiKey"] for s in _REGISTRY["by_id"]),
-                "brand": CONF["BRAND_NAME"],
+                "brand": brand(),
                 "catalogue": bool(load_plans()),
                 "registry": {"file": os.path.basename(SHOWCASES_FILE),
                              "count": len(registry["list"]),
@@ -1114,9 +1095,12 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/config":
             # No model list: the gateway decides which model answers, and the
             # page reads that decision back off the response instead.
+            assistant = vertical()["assistant"]
             return self._json(200, {
                 "defaultModel": default_model(provider_id),
-                "brand": CONF["BRAND_NAME"],
+                "brand": brand(),
+                "intro": assistant["intro"],
+                "placeholder": assistant["placeholder"],
                 "launcher": launcher_links()})
         if path == "/api/mcp/tools":
             return self._mcp_tools((query.get("showcase") or [""])[0])
@@ -1231,7 +1215,7 @@ class Handler(BaseHTTPRequestHandler):
             item["gatewayContext"] = showcase_context(url, provider_id, entry)
             item["unwiredReason"] = None if url else source
             out.append(item)
-        return {"brand": CONF["BRAND_NAME"],
+        return {"brand": brand(),
                 "provider": provider_id,
                 "defaultShowcase": registry["default_id"],
                 "registry": {"error": registry["error"]},
@@ -2093,7 +2077,7 @@ def main():
 
     registry = load_showcases()
 
-    print("%s%s AI assistant%s" % (BOLD, CONF["BRAND_NAME"], RESET))
+    print("%s%s AI assistant%s" % (BOLD, brand(), RESET))
     print("  base     %s" % LLM_GATEWAY.url)
     if MCP_GATEWAY.url != LLM_GATEWAY.url:
         print("  mcp base %s" % MCP_GATEWAY.url)
@@ -2102,7 +2086,7 @@ def main():
              registry["default_id"]))
     if registry["error"]:
         print("  %swarn%s     %s" % (YELLOW, RESET, registry["error"]))
-    print("  catalog  %s" % ("%s (%d chars)" % (CONF["PLANS_FILE"], len(load_plans()))
+    print("  catalog  %s" % ("%s (%d chars)" % (os.path.relpath(catalogue_path(), ROOT), len(load_plans()))
                               if load_plans() else "none - the assistant will not quote prices"))
     print("  model    %s  (max_tokens %s)" % (default_model(), CONF["MAX_TOKENS"]))
     print("           %sa default only - the gateway's routers decide which "
