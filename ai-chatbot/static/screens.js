@@ -472,11 +472,20 @@ function noticeFor(showcase) {
   return lines.join('');
 }
 
+/* The path of each message (assistant, gateway, what is behind it) is one
+ * element: large under the title on the home page, in the bar on a card. */
+const flowEl = document.querySelector('.flow');
+function placeFlow(home) {
+  const target = home ? document.getElementById('hero-flow') : document.querySelector('.contextbar-inner');
+  if (flowEl.parentElement !== target) target.appendChild(flowEl);
+}
+
 function mountShowcase(showcase) {
   const switching = showcase.id !== activeId;
   activeId = showcase.id;
   activeShowcase = showcase;
   document.body.dataset.screen = 'chat';
+  placeFlow(false);
   setPage(pageOf(showcase));
   showBackend();
   closeRail();
@@ -609,6 +618,7 @@ function mountHome(page) {
   activeShowcase = null;
   showBackend();
   document.body.dataset.screen = 'home';
+  placeFlow(true);
   document.body.dataset.rail = '';
   brandProduct.textContent = 'AI Assistant';
   document.title = 'AI Gateway showcases';
