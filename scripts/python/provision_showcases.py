@@ -969,11 +969,13 @@ def upsert_mcp_proxy(card: dict):
     capabilities = {k: info.get(k) or [] for k in ("tools", "resources", "prompts")} if status == 200 else None
     _upsert("mcp-proxies", {
         "id": own_id(card["id"]),
-        # "<business> - <server> - <card>", like the LLM proxies'. The
-        # gateway only accepts letters, digits, spaces, - _ and . in this name,
-        # so anything else, such as brackets, is left out.
-        "displayName": " ".join(re.sub(r"[^\w .-]+", " ", " - ".join(
-            filter(None, (vertical()["brand"], mcp.get("server"), card.get("title") or card["id"])))).split()),
+        # "<business> - <server> - <card>", like the LLM proxies', with no
+        # server when it is the business's own ({brand}). The gateway only
+        # accepts letters, digits, spaces, - _ and . in this name, so anything
+        # else, such as brackets, is left out.
+        "displayName": " ".join(re.sub(r"[^\w .-]+", " ", " - ".join(filter(None, (
+            vertical()["brand"], None if mcp.get("server") == "{brand}" else mcp.get("server"),
+            card.get("title") or card["id"])))).split()),
         "description": card.get("tagline", ""),
         "version": "v1.0",
         "projectId": PROJECT_ID,

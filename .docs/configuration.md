@@ -169,14 +169,19 @@ Workspace and its own routes on the gateways (`/telco/...`, `/bank/...`), so
 both can stay in place side by side. The first time a business is chosen, it
 is set up (a few minutes); after that, switching takes a minute or two.
 
+To show the business under another name, such as a customer's, set
+`DEMO_BRAND` in `demo.env`: the page, the cards and the assistant use it, and
+the gateway does not change.
+
 Each business is a folder of `verticals/`:
 
 - `vertical.json`: its brand and colours, its assistant, its customer, its
   MCP tools and agents, and the words the gateway's rules work with (allowed
   topics, routing examples, personal data patterns, thresholds);
 - `catalogue.md`: the products the assistant talks about;
-- `cards.json`: the questions and expected answers of its cards, where they
-  differ from `ai-chatbot/showcases.json`.
+- `cards.json`: how its cards are worded: the questions, the expected answers
+  and the notes. `ai-chatbot/showcases.json` holds every card with Acme
+  Mobile's wording too: the template a new business starts from.
 
 To add a business, copy a folder and rewrite it. Then check it with
 `python3 scripts/python/calibrate.py`: it proposes the thresholds that suit

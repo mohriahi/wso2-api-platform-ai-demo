@@ -310,8 +310,10 @@ def build_ssl_context(verify):
 
 
 def brand():
-    """The business's name, for the wordmark and the prompts."""
-    return vertical()["brand"]
+    """The business's name, for the wordmark, the prompts and the cards:
+    DEMO_BRAND in demo.env, else its own. Read per request, so a change shows
+    on the next page load."""
+    return _demo_value("DEMO_BRAND").strip() or vertical()["brand"]
 
 
 def _brand(text):
@@ -319,7 +321,7 @@ def _brand(text):
     what it does, {persona} its assistant's usual prompt."""
     v = vertical()
     return (text.replace("{persona}", v["assistant"]["systemPrompt"])
-            .replace("{brand}", v["brand"]).replace("{business}", v["business"]))
+            .replace("{brand}", brand()).replace("{business}", v["business"]))
 
 
 def load_plans():
@@ -415,10 +417,11 @@ def load_showcases():
         with open(SHOWCASES_FILE) as handle:
             raw = json.loads(handle.read())
         # The business's wording first, then the demo.env settings such as
-        # {PEAK_HOURS}, which its cards may use too.
+        # {PEAK_HOURS}, which its cards may use too, and its name.
         if isinstance(raw, dict):
             raw = for_business(raw)
-        raw = json.loads(re.sub(r"\{([A-Z][A-Z0-9_]*)\}", _demo_setting, json.dumps(raw, ensure_ascii=False)))
+        text = re.sub(r"\{([A-Z][A-Z0-9_]*)\}", _demo_setting, json.dumps(raw, ensure_ascii=False))
+        raw = json.loads(text.replace("{brand}", json.dumps(brand(), ensure_ascii=False)[1:-1]))
     except OSError:
         if not _REGISTRY["list"]:
             _install_registry([dict(_FALLBACK_ENTRY)], "showcases.json not found")
