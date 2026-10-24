@@ -1420,6 +1420,14 @@ class Handler(BaseHTTPRequestHandler):
                        "showcase": showcase_id,
                        "gatewayBody": body[:4000]}
             payload.update(gateway_meta(exc.headers))
+            # A meaning-based guard that cannot get the question's embedding
+            # blocks it to be safe: the embeddings model failed, the guard did
+            # not judge, so say so and count it as a fault.
+            if outcome == "policy_block" and "Failed to generate embedding" in body:
+                outcome = payload["gatewayOutcome"] = "upstream_error"
+                payload["error"] = ("the guard could not read the question: its embeddings model "
+                                    "(EMBEDDING_PROVIDER in demo.env) did not answer, so the gateway blocked it "
+                                    "to be safe")
             if outcome == "budget_exhausted" and showcase["limit"]:
                 payload["error"] = showcase["limit"]["message"]
                 payload["limitTitle"] = showcase["limit"]["title"]
@@ -1436,9 +1444,11 @@ class Handler(BaseHTTPRequestHandler):
             # and answers this bare 500: say why.
             elif (exc.code == 500 and "Internal Server Error" in body and payload_plain is not True
                   and any(name.startswith("semantic-") for name in entry.get("policies") or [])):
+                lane = showcase_id if provider_id == DEFAULT_PROVIDER_ID else "%s-%s" % (provider_id, showcase_id)
                 payload["error"] = ("the gateway could not set this card's policy up: the embeddings model it "
-                                    "needs (EMBEDDING_PROVIDER in demo.env) did not answer. Restart the gateway "
-                                    "once that model answers again.")
+                                    "needs (EMBEDDING_PROVIDER in demo.env) did not answer. Once it answers "
+                                    "again, deploy the card again: python3 scripts/python/provision_showcases.py "
+                                    + lane)
             # A policy refusing on purpose is not a fault. 422 says "the
             # content was rejected" without the alarm of a 502, and the client
             # still branches on gatewayStatus, so a 422 carrying 429 renders

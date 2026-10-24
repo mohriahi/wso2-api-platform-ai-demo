@@ -309,6 +309,18 @@ For a provider other than Mistral, put its key in `secrets/api-keys.env`:
 `EMBEDDINGS_PROVIDER_API_KEY` for the embeddings, `CLASSIFIER_API_KEY` for the
 classifier.
 
+When the embeddings model does not answer, the meaning-based cards fail and
+the chatbot says why: a guard blocks every question to be safe, and a card the
+gateway could not set up answers 500. Once the model answers again, deploy
+those cards again, for the business in `demo.env`:
+
+```
+python3 scripts/python/provision_showcases.py prompt-injection topic-guardrail semantic-routing mistral-prompt-injection mistral-topic-guardrail mistral-semantic-routing
+```
+
+The provisioning deploys them one after the other. A gateway restart sets them
+all up at once, which can go over the model's rate limit.
+
 ### Change the models that answer
 
 The LLM providers and their models are in `providers.json`, at the root of
