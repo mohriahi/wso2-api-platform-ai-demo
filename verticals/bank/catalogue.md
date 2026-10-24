@@ -14,7 +14,7 @@ All prices in euro, monthly fees charged on the 1st. Fictional demo figures.
 
 Switching package is free and takes effect on the next working day.
 
-Travel insurance from our partner Globetrotter is sold separately: its policies are
+Travel insurance from our travel partner is sold separately: its policies are
 not part of any package. Premier and Private come with {brand}'s own travel
 insurance instead.
 
