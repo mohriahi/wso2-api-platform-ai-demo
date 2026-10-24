@@ -11,8 +11,8 @@
 
 set -euo pipefail
 
-# Set these before running — either export them, or `source demo.env`
-# (copied from the repo root onto this VM) first. The version numbers must
+# Set these before running: export them first (their values are in
+# demo.env, copied from the repo root onto this VM). The version numbers must
 # match whatever distros were actually unpacked into /opt/wso2 -- demo.env
 # is the source of truth, but this script can't assume it's even present
 # (it's copied standalone to the VM), hence the inline defaults below.

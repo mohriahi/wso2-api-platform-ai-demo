@@ -44,9 +44,12 @@ load_demo_env() {
     grep -q "^$key=" "$root/demo.env" \
       || echo "  demo.env has no $key: add it from demo.env.example ($(grep "^$key=" "$root/demo.env.example"))" >&2
   done
-  set -a
-  source "$root/demo.env"
-  set +a
+  # Each value as written, as Python and Compose read it: a name with spaces,
+  # such as DEMO_BRAND's, needs no quotes.
+  local line
+  while IFS= read -r line || [ -n "$line" ]; do
+    if [[ "$line" =~ ^[A-Z][A-Z0-9_]*= ]]; then export "${line%%=*}=${line#*=}"; fi
+  done < "$root/demo.env"
 }
 
 # Moves every gateway port up by the port offset from demo.env (1 turns 8443
