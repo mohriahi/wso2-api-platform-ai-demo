@@ -245,7 +245,7 @@ body[data-screen="home"] .status .dot {
 .ghost-btn:hover { background: color-mix(in srgb, var(--top-text) 12%, transparent); border-color: color-mix(in srgb, var(--top-text) 60%, transparent); }
 
 /* The LLM provider picker: a pill like the other topbar controls, with its
-   own label and a drawn arrow instead of the browser's. */
+   own label, the LLM tab's icon and a drawn arrow instead of the browser's. */
 .provider { display: flex; align-items: center; gap: 8px; }
 .provider-label {
   font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
@@ -255,10 +255,12 @@ body[data-screen="home"] .status .dot {
   appearance: none;
   font: inherit; font-size: 13px; font-weight: 700;
   color: var(--top-text);
-  background: color-mix(in srgb, var(--top-text) 12%, transparent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23FFFFFF' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 13px center;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18ZM12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18ZM15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4M17.599 6.5a3 3 0 0 0 .399-1.375M6.003 5.125A3 3 0 0 0 6.401 6.5M3.477 10.896a4 4 0 0 1 .585-.396M19.938 10.5a4 4 0 0 1 .585.396M6 18a4 4 0 0 1-1.967-.516M19.967 17.484A4 4 0 0 1 18 18'/%3E%3C/svg%3E") no-repeat left 15px center / 1.15em 1.15em,
+    color-mix(in srgb, var(--top-text) 12%, transparent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23FFFFFF' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 13px center;
   border: 1px solid color-mix(in srgb, var(--top-text) 40%, transparent);
   border-radius: 999px;
-  padding: 7px 34px 7px 15px; cursor: pointer;
+  padding: 7px 34px 7px calc(22px + 1.15em); cursor: pointer;
 }
 .provider select:hover { background-color: color-mix(in srgb, var(--top-text) 20%, transparent); }
 .provider select option { color: var(--text); background: var(--surface); }
@@ -894,8 +896,18 @@ body[data-page="llm"] .backend, .backend[hidden] { display: none; }
   font: inherit; font-size: 13px; font-weight: 700; color: var(--top-text);
   background: color-mix(in srgb, var(--top-text) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--top-text) 40%, transparent);
-  border-radius: 999px; padding: 7px 15px; cursor: pointer;
+  border-radius: 18px; padding: 7px 15px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 7px; text-align: left;
 }
+/* The tab's icon, then the names: on one line with commas when they fit,
+   else one per line, and the pill becomes a rounded box around them. */
+.backend-icon { display: inline-flex; flex: none; }
+.backend-icon svg { width: 1.15em; height: 1.15em; }
+.backend-items { display: inline-flex; flex-wrap: wrap; column-gap: .3em; }
+.backend-item { white-space: nowrap; }
+.backend-item:not(:last-child)::after { content: ","; }
+.backend-name.is-stacked .backend-items { flex-direction: column; flex-wrap: nowrap; }
+.backend-name.is-stacked .backend-item::after { content: none; }
 .backend-name:hover:not(:disabled) { background: color-mix(in srgb, var(--top-text) 20%, transparent); }
 .backend-name:disabled { cursor: default; }
 /* What the gateway publishes for the open card, under its server's name:

@@ -126,12 +126,24 @@ function showBackend() {
   const names = [...new Set(cards.map((s) => (s.a2a && s.a2a.agent) || (s.mcp && s.mcp.server)).filter(Boolean))];
   const kind = activePage === 'a2a' ? 'Agent' : 'MCP server';
   document.getElementById('backend-label').textContent = names.length > 1 ? kind + 's' : kind;
-  backendBtn.textContent = names.join(', ');
+  backendBtn.innerHTML = iconHtml(activePage === 'a2a' ? 'agents' : 'mcp', 'backend-icon')
+    + '<span class="backend-items">' + names.map((name) => '<span class="backend-item">' + escapeHtml(name)
+      + '</span>').join('') + '</span>';
   document.getElementById('backend').hidden = !names.length;
   backendBtn.title = activeShowcase ? 'What the gateway publishes for this card'
     : 'Each one as it is, with no gateway rule';
+  fitBackend();
   closeBackend();
 }
+
+/* The names on one line when they fit, else one name per line. */
+function fitBackend() {
+  backendBtn.classList.remove('is-stacked');
+  const items = [...backendBtn.querySelectorAll('.backend-item')];
+  backendBtn.classList.toggle('is-stacked', items.some((item) => item.offsetTop !== items[0].offsetTop));
+}
+window.addEventListener('resize', fitBackend);
+document.fonts.ready.then(fitBackend);
 
 const backendBtn = document.getElementById('backend-name');
 const backendPanel = document.getElementById('backend-panel');
@@ -159,11 +171,11 @@ const noAnswer = (data) => '<p class="bcard-note">The gateway did not answer: ' 
  * text. */
 function mcpToolsHtml(data, name, state) {
   if (data.signinRequired) {
-    return backendCardHtml('wrench', name, '', {}, state,
+    return backendCardHtml('mcp', name, '', {}, state,
       '<p class="bcard-note">Sign in on this card first: the gateway lists these tools to a signed-in user only.</p>');
   }
-  if (!data.tools) return backendCardHtml('wrench', name, '', {}, state, noAnswer(data));
-  return backendCardHtml('wrench', data.server || name, data.tools.length + (data.tools.length === 1 ? ' tool' : ' tools'),
+  if (!data.tools) return backendCardHtml('mcp', name, '', {}, state, noAnswer(data));
+  return backendCardHtml('mcp', data.server || name, data.tools.length + (data.tools.length === 1 ? ' tool' : ' tools'),
     data, state, '<ul class="bcard-list">' + data.tools.map((tool) => '<li><code class="bcard-tool">' + escapeHtml(tool.name)
       + '<span>(' + escapeHtml(tool.params.join(', ')) + ')</span></code><p>' + escapeHtml(tool.description) + '</p></li>').join('')
     + '</ul>');
@@ -216,7 +228,7 @@ backendBtn.addEventListener('click', async () => {
       for (const name of [...new Set(cards.map(backendOf))]) {
         const plain = cards.find((s) => backendOf(s) === name && noPolicy(s));
         sections.push(plain ? await detailHtml(plain, false)
-          : backendCardHtml(activePage === 'a2a' ? 'agents' : 'wrench', name, '', {}, NO_POLICY,
+          : backendCardHtml(activePage === 'a2a' ? 'agents' : 'mcp', name, '', {}, NO_POLICY,
             '<p class="bcard-note">Each of its cards puts a gateway policy on it: open one to see what the gateway publishes.</p>'));
       }
       html = sections.join('');
@@ -372,12 +384,14 @@ function cardHtml(showcase, group) {
  * they show: id -> [title, icon, one line on what the group brings, and the
  * order of its cards when it sets one]. */
 let GROUPS = {};
+/* Some icons are Lucide's (lucide.dev, ISC license); mcp is the protocol's own logo. */
 const ICONS = {
   route: '<path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>',
   gauge: '<path d="M12 14l4-4M3.3 18a9 9 0 1 1 17.4 0"/>',
   shield: '<path d="M12 3l8 3v6c0 5-3.4 8.4-8 9-4.6-.6-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
-  agents: '<circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.7 10.6l6.6-3.2M8.7 13.4l6.6 3.2"/>',
+  agents: '<path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M2 14h2M20 14h2M9 13v2M15 13v2"/>',
+  mcp: '<path d="M2.04 11.26L11.48 1.82C12.79 0.51 14.9 0.51 16.2 1.82V1.82C17.51 3.12 17.51 5.23 16.2 6.54L9.07 13.67M9.17 13.57L16.2 6.54C17.51 5.23 19.62 5.23 20.92 6.54L20.97 6.59C22.27 7.89 22.27 10 20.97 11.31L12.43 19.84C12 20.28 12 20.98 12.43 21.42L14.19 23.17M13.84 4.18L6.86 11.16C5.56 12.46 5.56 14.57 6.86 15.88V15.88C8.17 17.18 10.28 17.18 11.58 15.88L18.56 8.9" stroke-width="1.25"/>',
   wrench: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-2.4z"/>',
   chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>',
   alert: '<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/>',
@@ -492,6 +506,7 @@ const flowEl = document.querySelector('.flow');
 function placeFlow(home) {
   const target = home ? document.getElementById('hero-flow') : document.querySelector('.contextbar-inner');
   if (flowEl.parentElement !== target) target.appendChild(flowEl);
+  fitBackend();
 }
 
 function mountShowcase(showcase) {
