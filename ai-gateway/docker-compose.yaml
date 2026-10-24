@@ -35,9 +35,6 @@ services:
       - path: api-platform.env
         required: true
         format: raw
-      - path: ../demo.env
-        required: false
-        format: raw
       - path: ../secrets/idp.env
         required: false
         format: raw
@@ -55,6 +52,18 @@ services:
       - APIP_GW_ANALYTICS_ENABLED=${APIP_GW_ANALYTICS_ENABLED:-false}
       - APIP_GW_EMBEDDING_PROVIDER_API_KEY=${APIP_GW_EMBEDDING_PROVIDER_API_KEY:-}
       - APIP_GW_CLASSIFIER_API_KEY=${APIP_GW_CLASSIFIER_API_KEY:-}
+      # The settings config.toml reads from demo.env, and only those, so a
+      # change elsewhere in demo.env, such as the business or its name,
+      # leaves the gateway running. The scripts load demo.env first.
+      - EMBEDDING_PROVIDER
+      - EMBEDDING_ENDPOINT
+      - EMBEDDING_MODEL
+      - EMBEDDING_DIMENSION
+      - CLASSIFIER_PROVIDER
+      - CLASSIFIER_ENDPOINT
+      - CLASSIFIER_MODEL
+      - RATE_LIMIT_ALGORITHM
+      - DEMO_HOSTNAME
     volumes:
       - controller-data:/app/data
       - ./configs/config.toml:/etc/gateway-controller/config.toml:ro
@@ -88,9 +97,6 @@ services:
       - path: api-platform.env
         required: true
         format: raw
-      - path: ../demo.env
-        required: false
-        format: raw
       - path: ../secrets/idp.env
         required: false
         format: raw
@@ -109,6 +115,16 @@ services:
       - APIP_GW_ANALYTICS_ENABLED=${APIP_GW_ANALYTICS_ENABLED:-false}
       - APIP_GW_EMBEDDING_PROVIDER_API_KEY=${APIP_GW_EMBEDDING_PROVIDER_API_KEY:-}
       - APIP_GW_CLASSIFIER_API_KEY=${APIP_GW_CLASSIFIER_API_KEY:-}
+      # The same demo.env settings as gateway-controller's.
+      - EMBEDDING_PROVIDER
+      - EMBEDDING_ENDPOINT
+      - EMBEDDING_MODEL
+      - EMBEDDING_DIMENSION
+      - CLASSIFIER_PROVIDER
+      - CLASSIFIER_ENDPOINT
+      - CLASSIFIER_MODEL
+      - RATE_LIMIT_ALGORITHM
+      - DEMO_HOSTNAME
     volumes:
       - ./configs/config.toml:/etc/policy-engine/config.toml:ro
       - ./configs/llm-pricing/model_prices.json:/etc/policy-engine/llm-pricing/model_prices.json:ro

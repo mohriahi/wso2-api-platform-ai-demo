@@ -167,7 +167,7 @@ DEMO_VERTICAL=bank    # Acme Bank
 Then run `./scripts/run-local.sh`. Each business has its own project in AI
 Workspace and its own routes on the gateways (`/telco/...`, `/bank/...`), so
 both can stay in place side by side. The first time a business is chosen, it
-is set up (a few minutes); after that, switching takes a minute or two.
+is set up (a few minutes); after that, switching takes about half a minute.
 
 To show the business under another name, such as a customer's, set
 `DEMO_BRAND` in `demo.env`: the page, the cards and the assistant use it, and

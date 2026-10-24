@@ -205,7 +205,7 @@ To switch the business the demo plays, set `DEMO_VERTICAL` in `demo.env`
 (`telco` for Acme Mobile, `bank` for Acme Bank), then run
 `./scripts/run-local.sh`. Each business has its own project in AI Workspace:
 the first time a business is chosen, it is set up (a few minutes); after
-that, switching takes a minute or two.
+that, switching takes about half a minute.
 
 Only reach for `reset-and-setup.sh` again if you actually want a clean
 slate: it wipes every database (providers, gateway registrations, cached
