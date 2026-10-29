@@ -48,7 +48,8 @@ STATIC = os.path.join(HERE, "static")
 # Shared with the provisioning: where the gateways are, and which cards they can run.
 sys.path.insert(0, os.path.join(HERE, "..", "scripts", "python"))
 from gateway_settings import missing_gateway_settings  # noqa: E402
-from target import A2A_ENABLED, A2A_GATEWAY, LLM_GATEWAY, MCP_GATEWAY, ROOT, read_env_file, setting  # noqa: E402
+from target import (A2A_ENABLED, A2A_GATEWAY, LLM_GATEWAY, MCP_GATEWAY, ROOT, a2a_supported,  # noqa: E402
+                    read_env_file, setting)
 from vertical import VERTICAL_ID, catalogue_path, for_business, own_path, vertical  # noqa: E402
 
 # The showcase registry. Deliberately NOT under static/ -- _serve_static would
@@ -449,8 +450,9 @@ def load_showcases():
             problems.append(reason)
             continue
         seen.add(entry["id"])
-        # The A2A Gateway page shows only with A2A_ENABLED (demo.env).
-        if entry.get("a2a") and not A2A_ENABLED:
+        # The A2A Gateway page shows only with A2A_ENABLED (demo.env), and each
+        # of its cards only on an A2A gateway version that runs it.
+        if entry.get("a2a") and not a2a_supported(entry):
             continue
         if entry.get("enabled") is False:
             continue

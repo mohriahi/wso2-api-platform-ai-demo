@@ -40,6 +40,17 @@ DEMO_ENV = _read_demo_env()
 # The A2A Gateway page (A2A_ENABLED in demo.env) has a gateway of its own,
 # started from a2a/ next to the main one: see a2a/docker-compose.yaml.
 A2A_ENABLED = (os.environ.get("A2A_ENABLED") or DEMO_ENV.get("A2A_ENABLED", "false")) == "true"
+A2A_GATEWAY_VERSION = os.environ.get("A2A_GATEWAY_VERSION") or DEMO_ENV.get("A2A_GATEWAY_VERSION", "")
+
+
+def a2a_supported(card: dict) -> bool:
+    """Whether this A2A card runs: the A2A Gateway page is on, and its gateway
+    is recent enough. A card that needs a newer gateway than the first A2A one
+    names that version in its a2a block ("gatewayVersion")."""
+    def numbers(version: str) -> tuple:
+        return tuple(int(n) for n in version.split(".") if n.isdigit())
+    need = card["a2a"].get("gatewayVersion")
+    return A2A_ENABLED and (not need or numbers(A2A_GATEWAY_VERSION) >= numbers(need))
 
 
 def _raw(name: str) -> str:

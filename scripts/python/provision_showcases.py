@@ -85,7 +85,8 @@ from platform_api import (
     probe_gateway, controller_api, api, login, deploy, read_secret, provider_key, upsert_shared_provider, budget_for,
     budget_duration, showcase, showcases, request,
 )
-from target import DEMO_ENV, setting, WORKSPACE_URL, LLM_GATEWAY, MCP_GATEWAY, Gateway, A2A_ENABLED, A2A_GATEWAY
+from target import (DEMO_ENV, setting, WORKSPACE_URL, LLM_GATEWAY, MCP_GATEWAY, Gateway, A2A_GATEWAY,
+                    a2a_supported)
 
 # =============================================================================
 # 1. Configuration. Addresses are in target.py, providers in providers.json.
@@ -733,10 +734,10 @@ ALL_LANES = {lid: lane for lid, lane in ALL_LANES.items() if lane["base_id"] not
 MCP_PROXIES = {card["id"]: card for card in showcases() if card.get("mcp") and card["id"] not in LEFT_OUT}
 
 # A2A agents, when A2A_ENABLED is on: one per showcases.json card with an
-# "a2a" block. AI Workspace does not handle agents yet: they are deployed on
-# the A2A gateway itself (a2a/).
+# "a2a" block that its gateway runs. AI Workspace does not handle agents yet:
+# they are deployed on the A2A gateway itself (a2a/).
 A2A_AGENTS = {card["id"]: card for card in showcases()
-              if A2A_ENABLED and card.get("a2a") and card["id"] not in LEFT_OUT}
+              if card.get("a2a") and a2a_supported(card) and card["id"] not in LEFT_OUT}
 
 DEFAULT_IDS = [lid for lid, lane in ALL_LANES.items() if lane["config"]] + list(MCP_PROXIES) + list(A2A_AGENTS)
 

@@ -104,12 +104,14 @@ reply, with what the gateway did.
 The last two need an OpenID Connect identity provider (Asgardeo, WSO2 Identity
 Server or any other): see the [IDP Setup](.docs/mcp-identity-provider.md).
 
-**A2A Gateway page (beta, off by default).**
+**A2A Gateway page (STS, off by default).**
 
 > [!IMPORTANT]
-> A2A is not officially released in the WSO2 AI Gateway yet. This page is off
-> by default and runs on a separate preview gateway. Once A2A is officially
-> released, it will be merged into the main gateway.
+> This page runs on a separate gateway, version 2026.10.0: a short-term support
+> (STS) release, which WSO2 publishes only on its private registry. It needs a
+> WSO2 account in `secrets/registry.env` (see
+> [Remote registry](.docs/configuration.md#5-optional-remote-registry)). Once
+> A2A is in a regular release, the page will move to the main gateway.
 
 With `A2A_ENABLED=true` in `demo.env`, a third page appears. There, the
 assistant does not answer by itself: it passes the customer's question to
@@ -124,12 +126,17 @@ The gateway sits between the two agents:
 
 | A2A showcase | What it shows |
 |---|---|
-| Agent behind the gateway | The assistant finds the roaming agent from its card on the gateway, then asks it the question |
+| Agent card under control | A partner's agent hides an instruction in its card; with the card the gateway vetted, the assistant no longer obeys it |
+| Only known agents | Only an agent holding a key from the gateway can talk to the roaming agent; anyone can still read its card |
 | Guardrail on agent messages | The Prompt injection rule, between agents: the attack is stopped before the roaming agent reads it |
+| Jev between agents | Jev reads every message sent to the agent: an attempt to turn it from its task is refused, even as a role-play or in another language, which the rule above lets through |
+| Agent rate limit | The gateway caps how many messages an agent receives: a client stuck in a loop is stopped |
+| Agent audit log | Every message between the two agents is recorded by the gateway |
+| Agent behind the gateway | The assistant finds the roaming agent from its card on the gateway, then asks it the question |
 
 How it runs: A2A needs a newer gateway version than the rest of the demo. This
-page therefore starts a second gateway next to the main one, with the same
-settings and its ports one above (`a2a/`). The main gateway is not touched. AI
+page therefore starts a second gateway next to the main one, on the STS
+release, with the same settings and its ports one above (`a2a/`). The main gateway is not touched. AI
 Workspace does not manage agents yet, so this second gateway is not registered
 in it: the setup deploys the agents on it directly.
 

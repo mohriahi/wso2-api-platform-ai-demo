@@ -130,9 +130,11 @@ cp secrets/registry.env.example secrets/registry.env
    state, on those images.
 
 For each product, the demo runs the newest update the registry has of the
-version set in `demo.env`: for `1.0.0`, the newest `1.0.0.N`. To go back to
-the public images, set `USE_EXTERNAL_REGISTRY=false` and run
-`./scripts/reset-and-setup.sh` again.
+version set in `demo.env`: for `1.0.0`, the newest `1.0.0.N`. It looks among
+the long-term support (LTS) releases first, then among the short-term support
+(STS) ones, in the `sts/` folder. A version found in neither runs from its
+public image. To go back to the public images, set
+`USE_EXTERNAL_REGISTRY=false` and run `./scripts/reset-and-setup.sh` again.
 
 ### Passwords
 
@@ -262,7 +264,7 @@ POLICY_COMPARISON_ENABLED=true
 
 This takes effect when the page is reloaded, without a restart.
 
-### Turn on the A2A Gateway page (beta)
+### Turn on the A2A Gateway page (STS)
 
 A third page where the assistant hands the customer's question to another
 agent, through the gateway. It is off by default:
@@ -272,8 +274,15 @@ A2A_ENABLED=true
 ```
 
 A2A needs a newer gateway than the main one, so the page comes with a gateway
-of its own: the same definition and settings as the main one, on a version with
-A2A, started next to it. The main gateway is not touched. After the change, run
+of its own: the same definition and settings as the main one, on the version in
+`A2A_GATEWAY_VERSION`, started next to it. The main gateway is not touched.
+
+That version, 2026.10.0, is a short-term support (STS) release: WSO2
+publishes it only on its private registry. Fill in `secrets/registry.env`
+first (see [Remote registry](#5-optional-remote-registry)), which also takes
+the other products from that registry. Without a WSO2 account, set
+`A2A_GATEWAY_VERSION=2026.09.24`, which is public: the page then runs without
+the **Jev between agents** card, which needs 2026.10.0. After the change, run
 `./scripts/run-local.sh`, then
 `./scripts/python/provision_showcases.py a2a-agent a2a-guardrail` the first
 time, which deploys the agents on that gateway. Its ports are one above the

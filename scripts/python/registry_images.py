@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Finds which product images to run from the external registry set in
 secrets/registry.env. For each product, it takes the newest update of the
-version in demo.env: for 0.16.0, the newest 0.16.0.N.
+version in demo.env (for 0.16.0, the newest 0.16.0.N) among the long-term
+support (LTS) releases, else among the short-term support (STS) ones. When the
+registry has neither, the product keeps its public image.
 
 It only reads the registry's list of versions: Docker downloads the images
 later, when it starts them. It prints one NAME=image line per image, and
@@ -15,22 +17,21 @@ import sys
 import urllib.error
 import urllib.request
 
-from target import ROOT, DEMO_ENV, read_env_file
+from target import ROOT, DEMO_ENV, A2A_ENABLED, A2A_GATEWAY_VERSION, read_env_file
 
 REGISTRY_FILE = ROOT / "secrets" / "registry.env"
 
-# Each product: its image name, the variable to set, and its version in demo.env.
-PRODUCTS = [
-    ("platform-api", "PLATFORM_API_IMAGE", "PLATFORM_API_VERSION"),
-    ("ai-workspace", "AI_WORKSPACE_IMAGE", "AI_WORKSPACE_VERSION"),
-    ("api-portal", "API_PORTAL_IMAGE", "API_PORTAL_VERSION"),
-]
 # The gateway's three base images. They must be the same update.
-GATEWAY_IMAGES = [
-    ("gateway-builder", "GATEWAY_BUILDER_IMAGE"),
-    ("gateway-controller", "GATEWAY_CONTROLLER_IMAGE"),
-    ("gateway-runtime", "GATEWAY_RUNTIME_IMAGE"),
+GATEWAY = ["gateway-builder", "gateway-controller", "gateway-runtime"]
+# Each product: its images and its version in demo.env.
+PRODUCTS = [
+    (["platform-api"], "PLATFORM_API_VERSION"),
+    (["ai-workspace"], "AI_WORKSPACE_VERSION"),
+    (["api-portal"], "API_PORTAL_VERSION"),
+    (GATEWAY, "AI_GATEWAY_VERSION"),
 ]
+# Where WSO2 keeps its STS releases, below the registry path.
+STS_FOLDER = "sts"
 
 # Some registries only answer clients that look like Docker.
 USER_AGENT = "docker/27.3.1 (tag list)"
@@ -48,7 +49,8 @@ def http_get(url: str, auth: str = None):
 
 
 def fetch_tags(host: str, repository: str, basic: str) -> list:
-    """The list of versions (tags) of an image on the registry."""
+    """The list of versions (tags) of an image, empty when the registry does
+    not have it."""
     status, _, headers = http_get(f"https://{host}/v2/")
     challenge = headers.get("WWW-Authenticate", "") if status == 401 else ""
     auth = basic
@@ -57,11 +59,11 @@ def fetch_tags(host: str, repository: str, basic: str) -> list:
         status, body, _ = http_get(f"{params['realm']}?service={params.get('service', '')}"
                                    f"&scope=repository:{repository}:pull", basic)
         if status != 200:
-            sys.exit(f"{host}: the token was refused ({status}): check {REGISTRY_FILE}")
+            return []
         auth = "Bearer " + (body.get("token") or body.get("access_token"))
     status, body, _ = http_get(f"https://{host}/v2/{repository}/tags/list", auth)
     if status != 200:
-        sys.exit(f"{host}/{repository}: tags not readable ({status})")
+        return []
     return body.get("tags") or []
 
 
@@ -74,6 +76,18 @@ def updates(version: str, tags: list) -> list:
 
 def tag(version: str, update: int) -> str:
     return version if update < 0 else f"{version}.{update}"
+
+
+def find(host: str, path: str, basic: str, names: list, version: str) -> dict:
+    """The images of a version, newest update first among the LTS releases,
+    then among the STS ones. Empty when the registry has neither."""
+    for base in (path, "/".join(filter(None, (path, STS_FOLDER)))):
+        repository = lambda name: "/".join(filter(None, (base, name)))
+        common = set.intersection(*(set(updates(version, fetch_tags(host, repository(name), basic)))
+                                    for name in names))
+        if common:
+            return {name: f"{host}/{repository(name)}:{tag(version, max(common))}" for name in names}
+    return {}
 
 
 def main():
@@ -91,24 +105,17 @@ def main():
         sys.exit(f"docker login {host} failed: check the username and token in {REGISTRY_FILE}")
     basic = "Basic " + base64.b64encode(f"{username}:{token}".encode()).decode()
 
-    images = {}
-    for product, variable, setting in PRODUCTS:
-        version = DEMO_ENV[setting]
-        found = updates(version, fetch_tags(host, f"{path}/{product}".lstrip("/"), basic))
-        if not found:
-            sys.exit(f"{url}/{product}: no {version} image")
-        images[variable] = f"{url}/{product}:{tag(version, max(found))}"
+    # The A2A Gateway page runs a gateway of its own, at its own version.
+    wanted = [("", names, DEMO_ENV[setting]) for names, setting in PRODUCTS]
+    if A2A_ENABLED:
+        wanted.append(("A2A_", GATEWAY, A2A_GATEWAY_VERSION))
 
-    version = DEMO_ENV["AI_GATEWAY_VERSION"]
-    common = set.intersection(*(set(updates(version, fetch_tags(host, f"{path}/{name}".lstrip("/"), basic)))
-                                for name, _ in GATEWAY_IMAGES))
-    if not common:
-        sys.exit(f"{url}: no gateway {version} update with all three images")
-    for name, variable in GATEWAY_IMAGES:
-        images[variable] = f"{url}/{name}:{tag(version, max(common))}"
-
-    for variable, image in images.items():
-        print(f"{variable}={image}")
+    for prefix, names, version in wanted:
+        images = find(host, path, basic, names, version)
+        if not images:
+            print(f"  {url}: no {names[-1]} {version}, the public image is used", file=sys.stderr)
+        for name, image in images.items():
+            print(f"{prefix}{name.upper().replace('-', '_')}_IMAGE={image}")
 
 
 if __name__ == "__main__":
