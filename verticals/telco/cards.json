@@ -1952,37 +1952,6 @@
         }
       ]
     },
-    "a2a-audit-log": {
-      "steps": [
-        {
-          "n": 1,
-          "title": "Two questions to the agent",
-          "sends": [
-            {
-              "ask": "I'm going to Spain in May. Will my phone work there?",
-              "expect": {
-                "text": "The roaming agent answers through the gateway."
-              }
-            },
-            {
-              "ask": "And if I go to Japan?",
-              "expect": {
-                "text": "Answered too."
-              }
-            }
-          ]
-        },
-        {
-          "n": 2,
-          "title": "Read the record",
-          "operator": {
-            "text": "In a terminal: each message sent to the agent and each answer, with its time.",
-            "command": "./scripts/audit-log.sh"
-          },
-          "sends": []
-        }
-      ]
-    },
     "a2a-agent": {
       "intro": {
         "chips": [

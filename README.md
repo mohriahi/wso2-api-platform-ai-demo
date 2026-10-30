@@ -131,7 +131,6 @@ The gateway sits between the two agents:
 | Guardrail on agent messages | The Prompt injection rule, between agents: the attack is stopped before the roaming agent reads it |
 | Jev between agents | Jev reads every message sent to the agent: an attempt to turn it from its task is refused, even as a role-play or in another language, which the rule above lets through |
 | Agent rate limit | The gateway caps how many messages an agent receives: a client stuck in a loop is stopped |
-| Agent audit log | Every message between the two agents is recorded by the gateway |
 | Agent behind the gateway | The assistant finds the roaming agent from its card on the gateway, then asks it the question |
 
 How it runs: A2A needs a newer gateway version than the rest of the demo. This

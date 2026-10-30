@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Turns the gateways' runtime logs, read on stdin, into the audit record the
+"""Turns the gateway's runtime log, read on stdin, into the audit record the
 log-message policy keeps, in time order: each question and answer of an LLM
-card, each tool call of an MCP card and its result, each message to an agent
-and its answer. Used by scripts/audit-log.sh."""
+card, each tool call of an MCP card and its result. Used by
+scripts/audit-log.sh."""
 import json
 import re
 import sys
@@ -53,21 +53,15 @@ def load(text: str):
             return None
 
 
-def parts_text(message: dict) -> str:
-    return " ".join(p.get("text", "") for p in (message or {}).get("parts") or [] if isinstance(p, dict))
-
-
 def rpc(payload: dict, flow: str):
-    """(what, text) for an MCP or A2A message, None for the protocol's own
-    plumbing (initialize, notifications)."""
+    """(what, text) for an MCP message, None for the protocol's own plumbing
+    (initialize, notifications)."""
     method, params = payload.get("method"), payload.get("params") or {}
     if flow == "REQUEST":
         if method == "tools/call":
             return "tool call", "%s(%s)" % (params.get("name"), json.dumps(params.get("arguments") or {}))
         if method == "tools/list":
             return "tool list", "the agent asks which tools it may use"
-        if method == "SendMessage":
-            return "message to the agent", parts_text(params.get("message"))
         return None
     if payload.get("error"):
         return "error", str(payload["error"].get("message", payload["error"]))
@@ -78,8 +72,7 @@ def rpc(payload: dict, flow: str):
         return "tools offered", ", ".join(t.get("name", "?") for t in result["tools"])
     if "content" in result:
         return "tool result", " ".join(c.get("text", "") for c in result["content"] if isinstance(c, dict))
-    message = result.get("message") or ((result.get("task") or {}).get("status") or {}).get("message")
-    return ("agent's answer", parts_text(message)) if message else None
+    return None
 
 
 def short(text: str, width: int = 300) -> str:
