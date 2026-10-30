@@ -84,7 +84,7 @@ The settings that matter:
 | `SHOWCASE_*_CONTEXT` | One context path per showcase. This is the whole wiring: gateway URL + context + `/v1/messages`. |
 | *(no `MODEL=`)* | No global default to set: each request's default is that provider's own fast/cheap model from `providers.json`, resolved per-showcase — the gateway's routers choose the model that actually answers regardless. `--model <id>` overrides every showcase at once with a literal id of your own, useful for demoing the error path. |
 | `MAX_TOKENS=2048` | Keep it generous. A reasoning model spends output tokens on thinking *before* it writes; at 32 this gateway returned a `thinking` block and no text — a blank reply, not an error. |
-| `DEMO_VERTICAL` (demo.env) | The business the demo plays, `telco` or `bank`: its brand, assistant, catalogue and card wording, from `verticals/`. |
+| `DEMO_VERTICAL` (demo.env) | The business the demo plays, `bank` (the default) or `telco`: its brand, assistant, catalogue and card wording, from `verticals/`. |
 | `POLICY_BLOCK_MARKERS` | `GUARDRAIL_INTERVENED,REGEX_GUARDRAIL` — lets the UI paint a policy refusal as the success it is rather than as a fault. |
 | `GATEWAY_API_KEY_HEADER=x-api-key` | Must match the `api-key-auth` policy's `key` parameter (`provision_showcases.py` provisions it as `X-API-Key`; header names are case-insensitive, and this gateway has always been driven with the lowercase spelling, verified against the real thing). Coincidentally the same name as the header the gateway itself uses toward Anthropic, on a different hop — no collision, just don't let the resemblance confuse a future rename. |
 | `SHOWCASE_*_API_KEY` | One per lane, nine different values. The only secrets in the file, and **blank in git** — fill them in locally. |

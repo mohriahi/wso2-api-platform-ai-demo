@@ -1,5 +1,5 @@
-"""The business the demo plays (DEMO_VERTICAL in demo.env): telco for Acme
-Mobile, bank for Acme Bank. Each one is a folder of verticals/:
+"""The business the demo plays (DEMO_VERTICAL in demo.env): bank for Acme
+Bank, telco for Acme Mobile. Each one is a folder of verticals/:
   vertical.json  its brand, assistant, customer, tools and agents, and the
                  words the gateway's policies use;
   catalogue.md   the products the assistant talks about;
@@ -11,7 +11,7 @@ import re
 
 from target import ROOT, setting
 
-VERTICAL_ID = setting("DEMO_VERTICAL", "telco")
+VERTICAL_ID = setting("DEMO_VERTICAL", "bank")
 FOLDER = ROOT / "verticals" / VERTICAL_ID
 # Each business has its own project in AI Workspace.
 PROJECT_ID = VERTICAL_ID

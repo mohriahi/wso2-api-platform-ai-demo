@@ -159,11 +159,11 @@ All in `demo.env`. The defaults work: change a value only for the cases below.
 
 ### The business the demo plays
 
-The same cards play a mobile operator or a bank:
+The same cards play a bank or a mobile operator:
 
 ```
+DEMO_VERTICAL=bank    # Acme Bank, the default
 DEMO_VERTICAL=telco   # Acme Mobile
-DEMO_VERTICAL=bank    # Acme Bank
 ```
 
 Then run `./scripts/run-local.sh`. Each business has its own project in AI
